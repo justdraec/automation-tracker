@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-bg: #f4f2ee;
+  --surface: #fff;
+  --border-color: #e8e4dd;
+  --border-hover: #cdc8bf;
+  --text-primary: #1c1917;
+  --text-muted: #78716c;
+  --text-hint: #a8a29e;
+
+  --step1-text: #b45309;
+  --step1-bg: #fffbeb;
+  --step1-border: #fcd34d;
+  --step1-accent: #d97706;
+
+  --step2-text: #4338ca;
+  --step2-bg: #eef2ff;
+  --step2-border: #a5b4fc;
+  --step2-accent: #6366f1;
+
+  --step3-text: #047857;
+  --step3-bg: #ecfdf5;
+  --step3-border: #6ee7b7;
+  --step3-accent: #10b981;
+
+  --ai-text: #6d28d9;
+  --ai-bg: #f5f3ff;
+  --ai-border: #c4b5fd;
+
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+}
+
+.dark {
+  --app-bg: #1a1a2e;
+  --surface: #16213e;
+  --border-color: #2a2d4a;
+  --border-hover: #3d4070;
+  --text-primary: #e0e0e0;
+  --text-muted: #a0a0b8;
+  --text-hint: #6e6e8a;
+
+  --step1-bg: #2d2310;
+  --step1-border: #5c4a1e;
+  --step2-bg: #1a1a3e;
+  --step2-border: #2d2d6e;
+  --step3-bg: #0d2818;
+  --step3-border: #1a4d30;
+  --ai-bg: #1e1040;
+  --ai-border: #3d2a7a;
+  --danger-bg: #2d1010;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--app-bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* Chat bubbles */
+.chat-bubble-assistant {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px 16px 16px 4px;
+}
+.chat-bubble-user {
+  background: var(--step1-bg);
+  border: 1px solid var(--step1-border);
+  border-radius: 16px 16px 4px 16px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes typing {
+  0%, 60% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+.typing-dot {
+  animation: typing 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* Score donut */
+.score-donut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.4s ease;
+}
+
+/* Builder panel input utilities */
+@layer components {
+  .field-input {
+    @apply w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--app-bg)] text-sm text-[var(--text-primary)] outline-none transition-colors;
+  }
+  .field-input:focus {
+    border-color: var(--step2-accent);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  }
+  .field-input-sm {
+    @apply w-full px-2 py-1.5 rounded-md border border-[var(--border-color)] bg-[var(--surface)] text-xs text-[var(--text-primary)] outline-none transition-colors;
+  }
+  .field-input-sm:focus {
+    border-color: var(--step2-accent);
+  }
+}
