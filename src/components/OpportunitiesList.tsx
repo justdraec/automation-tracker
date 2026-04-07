@@ -201,21 +201,21 @@ export default function OpportunitiesList({ entries, builderMode, onUpdate, onDe
                     {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     {isExpanded ? 'Less' : 'Details'}
                   </button>
+                  <button onClick={() => {
+                    if (confirm('Delete "' + (e.area || 'this opportunity') + '"? This cannot be undone.')) onDelete(e.id)
+                  }} className="text-xs text-text-hint hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
+                    <Trash2 size={12} /> Delete
+                  </button>
                   {builderMode && (
-                    <>
-                      <button onClick={() => {
-                        setBuilderOpen(prev => {
-                          const next = new Set(prev)
-                          next.has(e.id) ? next.delete(e.id) : next.add(e.id)
-                          return next
-                        })
-                      }} className="text-xs text-step2-text hover:bg-step2-bg px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
-                        <Pencil size={12} /> {isBuilderOpen ? 'Close' : 'Build'}
-                      </button>
-                      <button onClick={() => onDelete(e.id)} className="text-xs text-text-hint hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors">
-                        <Trash2 size={12} />
-                      </button>
-                    </>
+                    <button onClick={() => {
+                      setBuilderOpen(prev => {
+                        const next = new Set(prev)
+                        next.has(e.id) ? next.delete(e.id) : next.add(e.id)
+                        return next
+                      })
+                    }} className="text-xs text-step2-text hover:bg-step2-bg px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
+                      <Pencil size={12} /> {isBuilderOpen ? 'Close' : 'Build'}
+                    </button>
                   )}
                 </div>
 

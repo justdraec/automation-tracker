@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Bot, User } from 'lucide-react'
+import { Send, Loader2, Bot, User, Mic, MicOff } from 'lucide-react'
 import { callChatDiscovery } from '@/lib/supabase'
 import type { ChatMessage, Opportunity } from '@/lib/types'
 import { emptyOpportunity } from '@/lib/types'
@@ -13,8 +13,48 @@ export default function ChatDiscovery({ onSubmit }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
+  const [listening, setListening] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const recognitionRef = useRef<any>(null)
+
+  const speechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  function toggleVoice() {
+    if (listening) {
+      recognitionRef.current?.stop()
+      setListening(false)
+      return
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) return
+
+    const recognition = new SpeechRecognition()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+
+    recognition.onresult = (event: any) => {
+      let transcript = ''
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript
+      }
+      setInput(transcript)
+    }
+
+    recognition.onend = () => {
+      setListening(false)
+    }
+
+    recognition.onerror = () => {
+      setListening(false)
+    }
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setListening(true)
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -213,6 +253,20 @@ export default function ChatDiscovery({ onSubmit }: Props) {
               target.style.height = target.scrollHeight + 'px'
             }}
           />
+          {speechSupported && (
+            <button
+              onClick={toggleVoice}
+              disabled={loading}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${listening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-app-bg border border-border text-text-muted hover:text-step1 hover:border-step1'
+                } disabled:opacity-40`}
+              title={listening ? 'Stop listening' : 'Voice input'}
+            >
+              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
@@ -227,7 +281,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           </button>
         </div>
         <p className="text-[11px] text-text-hint text-center mt-2">
-          Press Enter to send, Shift+Enter for new line
+          {listening ? '🔴 Listening... speak your answer' : 'Press Enter to send, Shift+Enter for new line, or use the mic'}
         </p>
       </div>
     </div>
