@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Bot, User, Mic, MicOff } from 'lucide-react'
+import { Send, Loader2, Sparkles, Mic, MicOff, RotateCcw, Paperclip, X, FileText } from 'lucide-react'
 import { callChatDiscovery } from '@/lib/supabase'
 import type { ChatMessage, Opportunity } from '@/lib/types'
 import { emptyOpportunity } from '@/lib/types'
@@ -14,51 +14,95 @@ export default function ChatDiscovery({ onSubmit }: Props) {
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
   const [listening, setListening] = useState(false)
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
+  const manualStopRef = useRef(false)
 
-  const speechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Support text files, docs, PDFs (text extract), CSV, etc.
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      setAttachedFile({ name: file.name, content: text.slice(0, 8000) }) // Limit to 8K chars
+    }
+    reader.readAsText(file)
+    // Reset file input so same file can be re-selected
+    e.target.value = ''
+  }
 
+  const speechSupported = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  // Auto-focus textarea when loading finishes
+  useEffect(() => {
+    if (!loading && started) {
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+  }, [loading, started])
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
+
+  // Voice input with continuous listening
   function toggleVoice() {
     if (listening) {
+      manualStopRef.current = true
       recognitionRef.current?.stop()
       setListening(false)
+      inputRef.current?.focus()
       return
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) return
 
+    manualStopRef.current = false
     const recognition = new SpeechRecognition()
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-US'
 
+    let finalTranscript = ''
+
     recognition.onresult = (event: any) => {
-      let transcript = ''
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript
+      let interim = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' '
+        } else {
+          interim = transcript
+        }
       }
-      setInput(transcript)
+      setInput((finalTranscript + interim).trim())
     }
 
     recognition.onend = () => {
-      setListening(false)
+      if (!manualStopRef.current && listening) {
+        // Browser stopped due to silence — restart automatically
+        try { recognition.start() } catch {}
+      } else {
+        setListening(false)
+      }
     }
 
-    recognition.onerror = () => {
-      setListening(false)
+    recognition.onerror = (event: any) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setListening(false)
+      }
     }
 
     recognitionRef.current = recognition
     recognition.start()
     setListening(true)
   }
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   async function startChat() {
     setStarted(true)
@@ -71,7 +115,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
         content: reply,
         timestamp: new Date(),
       }])
-    } catch (err) {
+    } catch {
       setMessages([{
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -80,23 +124,45 @@ export default function ChatDiscovery({ onSubmit }: Props) {
       }])
     }
     setLoading(false)
-    inputRef.current?.focus()
+  }
+
+  function resetChat() {
+    setMessages([])
+    setInput('')
+    setStarted(false)
+    setLoading(false)
+    setListening(false)
+    manualStopRef.current = true
+    recognitionRef.current?.stop()
   }
 
   async function sendMessage() {
     const text = input.trim()
-    if (!text || loading) return
+    if (!text && !attachedFile) return
+    if (loading) return
+
+    // Build message content: include file if attached
+    let messageContent = text
+    if (attachedFile) {
+      messageContent = text
+        ? `${text}\n\n---\n[Attached file: ${attachedFile.name}]\n${attachedFile.content}`
+        : `[Attached file: ${attachedFile.name}]\nHere's a document about our workflow:\n\n${attachedFile.content}`
+    }
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: messageContent,
       timestamp: new Date(),
     }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setAttachedFile(null)
     setLoading(true)
+
+    // Reset textarea height
+    if (inputRef.current) inputRef.current.style.height = '52px'
 
     try {
       const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }))
@@ -108,8 +174,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
         content: reply,
         timestamp: new Date(),
       }
-      const updatedMessages = [...newMessages, assistantMsg]
-      setMessages(updatedMessages)
+      setMessages([...newMessages, assistantMsg])
 
       // Check if AI returned the completion JSON
       const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/)
@@ -121,7 +186,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           }
         } catch {}
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -159,130 +224,179 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     }
   }
 
+  // ── Welcome Screen ──────────────────────────────────────
   if (!started) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-step1-bg border-2 border-step1-border flex items-center justify-center mb-6">
-          <Bot className="w-8 h-8 text-step1" />
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-6 shadow-lg shadow-amber-300/30">
+          <Sparkles className="w-7 h-7 text-white" />
         </div>
-        <h2 className="text-xl font-bold text-text-primary mb-2">
-          Tell us about a task you want automated
+        <h2 className="text-2xl font-bold text-text-primary mb-3 tracking-tight">
+          What would you like to automate?
         </h2>
-        <p className="text-text-muted text-sm mb-8 max-w-md">
-          Have a quick conversation with our assistant. It'll ask you simple questions
-          one at a time — no forms to fill out, just chat naturally.
+        <p className="text-text-muted text-sm mb-10 max-w-lg leading-relaxed">
+          Tell me about a task that takes too much time or effort.
+          I'll ask a few questions to understand it, then we'll capture it as an automation opportunity.
         </p>
-        <button
-          onClick={startChat}
-          className="px-8 py-3 rounded-xl bg-step1 text-white font-semibold text-sm
-                     hover:opacity-90 transition-opacity shadow-lg shadow-amber-200/50"
-        >
-          Start conversation
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={startChat}
+            className="px-10 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm
+                       hover:shadow-lg hover:shadow-amber-300/40 transition-all hover:-translate-y-0.5 active:translate-y-0"
+          >
+            Start conversation
+          </button>
+          <span className="text-[11px] text-text-hint">Takes about 2-3 minutes</span>
+        </div>
       </div>
     )
   }
 
+  // ── Chat Interface ──────────────────────────────────────
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 animate-fade-in ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-full bg-step1-bg border border-step1-border flex items-center justify-center flex-shrink-0 mt-1">
-                <Bot className="w-4 h-4 text-step1" />
-              </div>
-            )}
-            <div
-              className={`max-w-[75%] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'chat-bubble-user text-step1-text'
-                  : 'chat-bubble-assistant text-text-primary'
-              }`}
-            >
-              {msg.content.replace(/```json[\s\S]*?```/g, '').trim()}
-            </div>
-            {msg.role === 'user' && (
-              <div className="w-8 h-8 rounded-full bg-step2-bg border border-step2-border flex items-center justify-center flex-shrink-0 mt-1">
-                <User className="w-4 h-4 text-step2" />
-              </div>
-            )}
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
-        ))}
-
-        {loading && (
-          <div className="flex gap-3 animate-fade-in">
-            <div className="w-8 h-8 rounded-full bg-step1-bg border border-step1-border flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-step1" />
-            </div>
-            <div className="chat-bubble-assistant px-4 py-3">
-              <div className="flex gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-text-hint typing-dot" />
-                <div className="w-2 h-2 rounded-full bg-text-hint typing-dot" />
-                <div className="w-2 h-2 rounded-full bg-text-hint typing-dot" />
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+          <span className="text-xs font-semibold text-text-muted">Discovery Assistant</span>
+        </div>
+        <button
+          onClick={resetChat}
+          className="flex items-center gap-1.5 text-[11px] text-text-hint hover:text-text-muted transition-colors px-2 py-1 rounded-lg hover:bg-app-bg"
+        >
+          <RotateCcw size={11} /> New conversation
+        </button>
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-border px-4 py-3 bg-app-surface">
-        <div className="flex gap-3 items-end max-w-3xl mx-auto">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your answer..."
-            rows={1}
-            disabled={loading}
-            className="flex-1 resize-none rounded-xl border border-border bg-app-bg px-4 py-3
-                       text-sm text-text-primary placeholder:text-text-hint
-                       focus:border-step1 focus:ring-2 focus:ring-step1/20 focus:outline-none
-                       disabled:opacity-50 transition-all"
-            style={{ minHeight: '44px', maxHeight: '120px' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement
-              target.style.height = '44px'
-              target.style.height = target.scrollHeight + 'px'
-            }}
-          />
-          {speechSupported && (
-            <button
-              onClick={toggleVoice}
-              disabled={loading}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                ${listening
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-app-bg border border-border text-text-muted hover:text-step1 hover:border-step1'
-                } disabled:opacity-40`}
-              title={listening ? 'Stop listening' : 'Voice input'}
-            >
-              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+          {messages.map(msg => (
+            <div key={msg.id} className="animate-fade-in">
+              {msg.role === 'assistant' ? (
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div className="flex-1 text-[14px] leading-relaxed text-text-primary pt-0.5">
+                    {msg.content.replace(/```json[\s\S]*?```/g, '').trim()}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <div className="max-w-[80%] bg-[#1c1917] dark:bg-[#2a2d4a] text-white rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed">
+                    {msg.content.includes('[Attached file:') ? (
+                      <>
+                        {msg.content.split('\n---\n')[0] || 'Attached a document'}
+                        <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-white/10 rounded-lg text-xs text-white/70">
+                          <FileText size={12} />
+                          {msg.content.match(/\[Attached file: (.+?)\]/)?.[1] || 'file'}
+                        </div>
+                      </>
+                    ) : msg.content}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex gap-3 animate-fade-in">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="flex gap-1.5 pt-2.5">
+                <div className="w-2 h-2 rounded-full bg-text-hint/60 typing-dot" />
+                <div className="w-2 h-2 rounded-full bg-text-hint/60 typing-dot" />
+                <div className="w-2 h-2 rounded-full bg-text-hint/60 typing-dot" />
+              </div>
+            </div>
           )}
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || loading}
-            className="w-11 h-11 rounded-xl bg-step1 text-white flex items-center justify-center
-                       hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
+          <div ref={messagesEndRef} />
         </div>
-        <p className="text-[11px] text-text-hint text-center mt-2">
-          {listening ? '🔴 Listening... speak your answer' : 'Press Enter to send, Shift+Enter for new line, or use the mic'}
-        </p>
+      </div>
+
+      {/* Input area — fixed bottom bar like ChatGPT */}
+      <div className="border-t border-border/50 bg-app-surface/80 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          {/* Attached file preview */}
+          {attachedFile && (
+            <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-step2-bg border border-step2-border rounded-xl text-xs animate-fade-in">
+              <FileText size={14} className="text-step2 flex-shrink-0" />
+              <span className="text-step2-text font-medium truncate flex-1">{attachedFile.name}</span>
+              <span className="text-step2-text/60">{(attachedFile.content.length / 1000).toFixed(1)}k chars</span>
+              <button onClick={() => setAttachedFile(null)} className="text-step2-text/60 hover:text-red-500 transition-colors">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          <div className="flex items-end gap-2 bg-app-bg border border-border rounded-2xl px-3 py-2 focus-within:border-text-muted/40 focus-within:shadow-sm transition-all">
+            {/* File upload button */}
+            <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-text-hint hover:text-text-muted hover:bg-app-surface transition-all disabled:opacity-30 flex-shrink-0"
+              title="Attach a file (process doc, SOP, etc.)"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={listening ? 'Listening...' : 'Type your answer...'}
+              rows={1}
+              disabled={loading}
+              className="flex-1 resize-none bg-transparent text-[14px] text-text-primary placeholder:text-text-hint
+                         focus:outline-none disabled:opacity-50 py-1.5 leading-relaxed"
+              style={{ minHeight: '28px', maxHeight: '120px' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement
+                target.style.height = '28px'
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px'
+              }}
+            />
+            <div className="flex items-center gap-1 pb-0.5">
+              {speechSupported && (
+                <button
+                  onClick={toggleVoice}
+                  disabled={loading}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all
+                    ${listening
+                      ? 'bg-red-500 text-white shadow-md shadow-red-300/40 animate-pulse'
+                      : 'text-text-hint hover:text-text-muted hover:bg-app-surface'
+                    } disabled:opacity-30`}
+                  title={listening ? 'Stop listening' : 'Voice input'}
+                >
+                  {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+              )}
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim() || loading}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all
+                  ${input.trim() && !loading
+                    ? 'bg-[#1c1917] dark:bg-white text-white dark:text-[#1c1917] shadow-sm hover:opacity-90'
+                    : 'text-text-hint/40'
+                  }`}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-text-hint" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </div>
+          <p className="text-[10px] text-text-hint/60 text-center mt-1.5">
+            {listening ? 'Listening... click mic to stop' : 'Enter to send \u00b7 Shift+Enter for new line'}
+          </p>
+        </div>
       </div>
     </div>
   )

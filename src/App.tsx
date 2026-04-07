@@ -121,8 +121,8 @@ export default function App() {
       {/* Header */}
       <div className="bg-[#1c1917] dark:bg-[#0f0f1a] rounded-[14px] px-5 py-4 mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">Automation opportunity tracker</h1>
-          <p className="text-xs text-white/40 mt-1">Young Publisher</p>
+          <h1 className="text-lg font-bold text-white tracking-tight">Automation Opportunity Tracker</h1>
+          <p className="text-xs text-white/40 mt-1">by Drae</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex gap-1.5 flex-wrap">
