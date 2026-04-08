@@ -140,6 +140,7 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [contextSuggestions, setContextSuggestions] = useState<string[]>([])
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([])
+  const [inputError, setInputError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set())
@@ -213,8 +214,13 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
     }
   }
 
+  const sessionLimitReached = messages.length >= 30
+
   async function doSend(messageContent: string): Promise<void> {
     if (!messageContent.trim() || loading) return
+    setInputError('')
+    if (messageContent.trim().length > 2000) { setInputError('Message too long — please keep responses under 2000 characters.'); return }
+    if (sessionLimitReached) return
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: messageContent, timestamp: new Date() }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages); setInput(''); setAttachedFile(null); setContextSuggestions([]); setToolSelectMode(false); setSelectedTools(new Set()); setLoading(true)
@@ -274,7 +280,8 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
     opp.clientTrigger = data.clientTrigger || ''; opp.clientInput = data.clientInput || ''; opp.clientSteps = data.clientSteps || ''
     opp.clientOutput = data.clientOutput || ''; opp.desired = data.desired || ''; opp.metric = data.metric || ''; opp.timesaved = data.timesaved || ''
     opp.input = data.clientInput || ''; opp.output = data.clientOutput || ''; opp.steps = data.clientSteps || ''
-    opp.impact = parseInt(String(data.impact)) || 3; opp.urgency = parseInt(String(data.urgency)) || 3; opp.feasibility = parseInt(String(data.feasibility)) || 3
+    const clamp = (v: number) => isNaN(v) || v < 1 || v > 5 ? 3 : v
+    opp.impact = clamp(parseInt(String(data.impact))); opp.urgency = clamp(parseInt(String(data.urgency))); opp.feasibility = clamp(parseInt(String(data.feasibility)))
     opp.score = calcScore(opp.impact, opp.urgency, opp.feasibility); opp.priority = getPriority(opp.score)
     try {
       onSubmit(opp)
@@ -304,7 +311,7 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
         <p className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-widest mb-2">Triggr Flow</p>
         <h2 className="text-2xl font-headline font-bold text-on-surface mb-8 tracking-tight">What would you like to automate?</h2>
         <div className="w-full max-w-[600px] relative bg-white border border-outline-variant/30 rounded-full flex items-center px-2 py-2 shadow-xl focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all mb-5">
-          <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
+          <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.json" onChange={handleFileUpload} className="hidden" />
           <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full"><Icon name="attach_file" size={20} /></button>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Describe a task that takes too much time..." rows={1}
             className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-3 placeholder:text-on-surface-variant/40 resize-none outline-none leading-relaxed" style={{ minHeight: '28px', maxHeight: '60px' }}
@@ -509,6 +516,17 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
             {/* Input bar */}
             <div className="px-8 pb-6 pt-4">
               <div className="max-w-4xl mx-auto">
+                {/* Session limit warning */}
+                {sessionLimitReached && (
+                  <div className="flex items-center gap-2 mb-3 px-4 py-3 bg-tertiary-fixed border border-tertiary-fixed-dim rounded-xl text-sm text-on-tertiary-fixed font-medium animate-fade-in">
+                    <Icon name="warning" size={18} className="text-tertiary flex-shrink-0" />
+                    Session limit reached. Save this opportunity or start a new conversation.
+                  </div>
+                )}
+                {/* Input error */}
+                {inputError && (
+                  <p className="text-xs text-error font-medium mb-2 px-2">{inputError}</p>
+                )}
                 {attachedFile && (
                   <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary-fixed border border-primary-fixed-dim rounded-xl text-xs animate-fade-in">
                     <Icon name="description" size={16} className="text-primary flex-shrink-0" />
@@ -517,21 +535,21 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
                     <button onClick={() => setAttachedFile(null)} className="text-on-surface-variant/40 hover:text-error transition-colors"><Icon name="close" size={16} /></button>
                   </div>
                 )}
-                <div className="relative bg-white border border-outline-variant/30 rounded-full flex items-center px-2 py-2 shadow-lg focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-                  <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
-                  <button onClick={() => fileInputRef.current?.click()} disabled={loading} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors disabled:opacity-30 rounded-full"><Icon name="attach_file" size={20} /></button>
-                  <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                    placeholder={listening ? 'Listening...' : 'Ask a question or refine the logic...'} rows={1} disabled={loading}
+                <div className={`relative bg-white border rounded-full flex items-center px-2 py-2 shadow-lg transition-all ${sessionLimitReached ? 'opacity-50 pointer-events-none border-outline-variant/20' : 'border-outline-variant/30 focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5'}`}>
+                  <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.json" onChange={handleFileUpload} className="hidden" />
+                  <button onClick={() => fileInputRef.current?.click()} disabled={loading || sessionLimitReached} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors disabled:opacity-30 rounded-full"><Icon name="attach_file" size={20} /></button>
+                  <textarea ref={inputRef} value={input} onChange={e => { setInput(e.target.value); setInputError('') }} onKeyDown={handleKeyDown}
+                    placeholder={sessionLimitReached ? 'Session limit reached' : listening ? 'Listening...' : 'Ask a question or refine the logic...'} rows={1} disabled={loading || sessionLimitReached}
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-4 placeholder:text-on-surface-variant/40 resize-none outline-none disabled:opacity-50 leading-relaxed"
                     style={{ minHeight: '28px', maxHeight: '80px' }}
                     onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = '28px'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }} />
                   {speechSupported && (
-                    <button onClick={toggleVoice} disabled={loading} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${listening ? 'bg-error text-on-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}>
+                    <button onClick={toggleVoice} disabled={loading || sessionLimitReached} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${listening ? 'bg-error text-on-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}>
                       <Icon name={listening ? 'mic_off' : 'mic'} size={20} />
                     </button>
                   )}
-                  <button onClick={sendMessage} disabled={(!input.trim() && !attachedFile) || loading}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md shadow-primary/20 ${(input.trim() || attachedFile) && !loading ? 'bg-primary text-white hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
+                  <button onClick={sendMessage} disabled={(!input.trim() && !attachedFile) || loading || sessionLimitReached}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md shadow-primary/20 ${(input.trim() || attachedFile) && !loading && !sessionLimitReached ? 'bg-primary text-white hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
                     {loading ? <Icon name="progress_activity" size={20} className="icon-spin" /> : <Icon name="arrow_upward" size={20} />}
                   </button>
                 </div>
