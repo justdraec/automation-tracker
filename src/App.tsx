@@ -166,7 +166,7 @@ export default function App() {
         {/* Content — views stay mounted to preserve state */}
         <main className="flex-1 overflow-hidden relative">
           <div className={activeView === 'chat' ? 'flex flex-col h-full' : 'hidden'}>
-            <ChatDiscovery onSubmit={handleNewOpportunity} />
+            <ChatDiscovery onSubmit={handleNewOpportunity} onNavigateToList={() => setActiveView('list')} />
           </div>
           <div className={activeView === 'list' ? 'flex flex-col h-full' : 'hidden'}>
             <OpportunitiesList

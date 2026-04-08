@@ -7,11 +7,12 @@ import Icon from '@/components/Icon'
 
 interface Props {
   onSubmit: (opp: Opportunity) => void
+  onNavigateToList?: () => void
 }
 
 interface WorkflowNode {
   id: string
-  type: 'trigger' | 'filter' | 'action' | 'output'
+  type: 'trigger' | 'filter' | 'input' | 'action' | 'output'
   label: string
   icon: string
   addedAt: number
@@ -57,7 +58,7 @@ function inferField(question: string): string | null {
   if (q.includes('urgent') || q.includes('priority') || q.includes('immediately') || q.includes('daily pain')) return 'urgency'
   if (q.includes('impact') || q.includes('difference') || q.includes('game-changer') || q.includes('how big')) return 'impact'
   if (q.includes('pain') || q.includes('frustrat') || q.includes('time-consuming')) return 'pain'
-  if (q.includes('input') || q.includes('data') || q.includes('information') || q.includes('looking at')) return 'clientInput'
+  if (q.includes('input') || q.includes('data you need') || q.includes('information') || q.includes('looking at') || q.includes('in front of you')) return 'clientInput'
   if (q.includes('ideal') || q.includes('automat') || q.includes('perfectly') || q.includes('desired')) return 'desired'
   if (q.includes('feasib') || q.includes('integrat') || q.includes('api') || q.includes('connection point')) return 'feasibility'
   if (q.includes('name') || q.includes('short name') || q.includes('call this')) return 'area'
@@ -67,13 +68,12 @@ function inferField(question: string): string | null {
 function deriveNodes(data: Partial<Record<string, string>>): WorkflowNode[] {
   const nodes: WorkflowNode[] = []
   const now = Date.now()
-  if (data.area) nodes.push({ id: 'area', type: 'trigger', icon: 'bubble_chart', label: data.area.slice(0, 28), addedAt: now })
-  if (data.clientTrigger) nodes.push({ id: 'trigger', type: 'trigger', icon: 'play_circle', label: data.clientTrigger.slice(0, 28), addedAt: now + 1 })
+  if (data.clientTrigger) nodes.push({ id: 'trigger', type: 'trigger', icon: 'play_circle', label: data.clientTrigger.slice(0, 28), addedAt: now })
   if (data.tools) {
-    data.tools.split(',').slice(0, 2).forEach((tool, i) =>
-      nodes.push({ id: `filter-${i}`, type: 'filter', icon: 'account_tree', label: tool.trim().slice(0, 22), addedAt: now + 2 + i })
-    )
+    const combined = data.tools.split(',').map(t => t.trim()).filter(Boolean).join(' / ')
+    nodes.push({ id: 'filter', type: 'filter', icon: 'account_tree', label: combined.length > 25 ? combined.slice(0, 22) + '...' : combined, addedAt: now + 2 })
   }
+  if (data.clientInput) nodes.push({ id: 'input', type: 'input', icon: 'database', label: data.clientInput.slice(0, 25), addedAt: now + 5 })
   if (data.clientSteps) nodes.push({ id: 'action', type: 'action', icon: 'hub', label: data.area ? `Automate ${data.area.slice(0, 20)}` : 'Automation Action', addedAt: now + 10 })
   if (data.output || data.clientOutput) nodes.push({ id: 'output', type: 'output', icon: 'output', label: (data.output || data.clientOutput || '').slice(0, 25), addedAt: now + 20 })
   return nodes
@@ -107,23 +107,27 @@ function generateSuggestions(aiMessage: string): string[] {
     return ['It takes too long', 'Too many manual steps', 'Errors happen frequently', 'What do we do when it breaks?']
   if (msg.includes('success') || msg.includes('metric') || msg.includes('measure'))
     return ['Fewer errors', 'Faster turnaround', 'Hours saved per week', 'Does anyone need a log of what happened?']
+  if (msg.includes('hours') || msg.includes('week') || msg.includes('time saved') || msg.includes('how many hours'))
+    return ['Less than 1 hour', '1–3 hours per week', '3–5 hours per week', 'More than 5 hours per week']
   return []
 }
 
 const NODE_BORDER: Record<string, string> = {
   trigger: 'border-t-primary',
   filter: 'border-t-secondary',
+  input: 'border-t-purple-400',
   action: 'border-t-tertiary-fixed-dim',
   output: 'border-t-green-500',
 }
 const NODE_ICON_COLOR: Record<string, string> = {
   trigger: 'text-primary',
   filter: 'text-secondary',
+  input: 'text-purple-500',
   action: 'text-on-tertiary-fixed-variant',
   output: 'text-green-600',
 }
 
-export default function ChatDiscovery({ onSubmit }: Props) {
+export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -255,14 +259,15 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     opp.impact = parseInt(String(data.impact)) || 3; opp.urgency = parseInt(String(data.urgency)) || 3; opp.feasibility = parseInt(String(data.feasibility)) || 3
     opp.score = calcScore(opp.impact, opp.urgency, opp.feasibility); opp.priority = getPriority(opp.score)
     onSubmit(opp)
+    if (onNavigateToList) setTimeout(() => onNavigateToList(), 500)
   }
 
   function handleKeyDown(e: React.KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }
 
   const currentStep = Math.min(Math.floor(messages.filter(m => m.role === 'user').length), DISCOVERY_STAGES.length - 1)
-  const accuracy = completionData
+  const accuracy = Math.min(completionData
     ? Math.round(Object.values(completionData).filter(v => v && v !== 'true').length / DISCOVERY_STAGES.length * 100)
-    : Math.round(currentStep / DISCOVERY_STAGES.length * 100)
+    : Math.round(currentStep / DISCOVERY_STAGES.length * 100), 100)
 
   const welcomeSuggestions = ['Automate invoice processing', 'Set up a lead alert', 'Build a weekly report', 'Sync data between apps', 'Automate client onboarding']
 
@@ -305,10 +310,13 @@ export default function ChatDiscovery({ onSubmit }: Props) {
 
         {/* ── TOP: Workflow Map Section (35% height) ── */}
         <section className={`border-b border-outline-variant/10 workflow-dot bg-surface-container-low/30 relative overflow-x-auto overflow-y-hidden flex items-center px-12 shrink-0 transition-all ${workflowNodes.length > 0 ? 'h-[35%]' : 'h-[100px]'}`}>
-          {/* Label */}
-          <div className="absolute top-4 left-6 flex items-center gap-2">
+          {/* Label + area header */}
+          <div className="absolute top-4 left-6 flex items-center gap-3">
             <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
             <span className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest">Live Strategy Mapping</span>
+            {collectedDataRef.current.area && (
+              <span className="text-xs font-headline font-bold text-on-surface ml-2">Mapping: {collectedDataRef.current.area}</span>
+            )}
           </div>
 
           {workflowNodes.length > 0 ? (
