@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Opportunity, ChatMessage } from './types'
 
-const SUPABASE_URL = 'https://kfllhxifhuxzikhjudtr.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmbGxoeGlmaHV4emlraGp1ZHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MzY2ODYsImV4cCI6MjA5MTAxMjY4Nn0.CiKJlBBKs3zIsiIihy7Hj1fL0G22flWCl0267m6HVjk'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
@@ -18,7 +18,8 @@ export async function fetchOpportunities(): Promise<Opportunity[]> {
 }
 
 export async function createOpportunity(entry: Opportunity): Promise<void> {
-  const { error } = await supabase.from(TABLE).insert(entry)
+  const { id, ...payload } = entry // omit id — let Supabase auto-generate
+  const { error } = await supabase.from(TABLE).insert(payload)
   if (error) throw error
 }
 

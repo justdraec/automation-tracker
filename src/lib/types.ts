@@ -122,7 +122,7 @@ export const STATUS_COLORS: Record<OpportunityStatus, string> = {
 
 export function emptyOpportunity(): Opportunity {
   return {
-    id: Date.now(),
+    id: 0, // Supabase auto-generates the real ID on insert
     _version: 5,
     status: 'pending-review',
     category: '', area: '', owner: '', pain: '', minutes: '',

@@ -1,0 +1,10 @@
+- Strict mode is on. Never use `// @ts-ignore` or `// @ts-nocheck`. Fix types properly.
+- Never use `any`. Use `unknown` and narrow it, or define the proper interface.
+- Exception: `(window as any).SpeechRecognition` in `ChatDiscovery.tsx` — no TS types exist for Web Speech API.
+- Use `interface` for object shapes and props. Use `type` for unions and aliases.
+- `src/lib/types.ts` is the single source of truth. Adding a new field requires: update the `Opportunity` interface, update `emptyOpportunity()` with a default, add the Supabase column via migration.
+- Use `@/` alias for all project imports: `import type { Opportunity } from '@/lib/types'`
+- Type-only imports use `import type` syntax.
+- All async functions must have explicit return type annotations.
+- Cast Supabase results explicitly: `return (data || []) as Opportunity[]`
+- Prefer const record objects over TypeScript enums.

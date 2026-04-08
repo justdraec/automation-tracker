@@ -15,6 +15,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
   const [started, setStarted] = useState(false)
   const [listening, setListening] = useState(false)
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null)
+  const [completionData, setCompletionData] = useState<Record<string, string> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -182,7 +183,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
         try {
           const data = JSON.parse(jsonMatch[1])
           if (data.complete) {
-            setTimeout(() => handleCompletion(data), 1500)
+            setCompletionData(data)
           }
         } catch {}
       }
@@ -315,6 +316,44 @@ export default function ChatDiscovery({ onSubmit }: Props) {
               </div>
             </div>
           )}
+          {/* Completion confirmation card */}
+          {completionData && (
+            <div className="animate-fade-in max-w-2xl mx-auto">
+              <div className="bg-step3-bg border-2 border-step3-border rounded-2xl p-5 mt-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-step3 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-step3-text">Ready to save!</p>
+                    <p className="text-xs text-text-muted">Review and confirm this opportunity</p>
+                  </div>
+                </div>
+                <div className="bg-app-surface rounded-xl p-3 mb-3 text-xs space-y-1.5">
+                  <p><span className="font-bold text-text-muted">Task:</span> {completionData.area}</p>
+                  {completionData.owner && <p><span className="font-bold text-text-muted">Owner:</span> {completionData.owner}</p>}
+                  {completionData.tools && <p><span className="font-bold text-text-muted">Tools:</span> {completionData.tools}</p>}
+                  {completionData.frequency && <p><span className="font-bold text-text-muted">Frequency:</span> {completionData.frequency}</p>}
+                  {completionData.timesaved && <p><span className="font-bold text-text-muted">Time saved:</span> {completionData.timesaved} hrs/week</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { handleCompletion(completionData); setCompletionData(null) }}
+                    className="flex-1 py-2.5 rounded-xl bg-step3 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Save this opportunity
+                  </button>
+                  <button
+                    onClick={() => setCompletionData(null)}
+                    className="px-4 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:bg-app-bg transition-colors"
+                  >
+                    Continue chatting
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>

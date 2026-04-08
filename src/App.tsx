@@ -58,7 +58,11 @@ export default function App() {
   }
 
   function checkPassword() {
-    const pw = localStorage.getItem('yp-builder-pw') || 'AutoBuilder#1'
+    const pw = localStorage.getItem('yp-builder-pw') || ''
+    if (!pw) {
+      setPwError(true)
+      return
+    }
     if (pwInput === pw) {
       setBuilderMode(true)
       setShowPwPrompt(false)

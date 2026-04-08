@@ -1,0 +1,9 @@
+- Credentials must NEVER be hardcoded. Use `import.meta.env.VITE_SUPABASE_URL` and `import.meta.env.VITE_SUPABASE_ANON_KEY` in all frontend code.
+- `.env` must be in `.gitignore`. Never commit it.
+- The builder password fallback must be an empty string, not a hardcoded value. If `localStorage.getItem('yp-builder-pw')` returns null or empty, builder mode cannot be activated.
+- The Delete button in `OpportunitiesList.tsx` must be wrapped in `{builderMode && (...)}` — it is currently available to all users which is a bug.
+- Status change dropdown must remain builder-mode only.
+- Never use `dangerouslySetInnerHTML` or `eval()` anywhere in this codebase.
+- All Supabase schema changes go through `supabase/migrations/` — never alter schema via the JS client.
+- OpenAI API key lives in Supabase → Edge Functions → Secrets as `OPENAI_API_KEY`. It never touches the frontend.
+- When Supabase Auth is added (Phase 4), RLS must be enabled on `opportunities` before launch.

@@ -1,9 +1,16 @@
 node_modules/
 dist/
+dist-ssr/
 .env
 .env.local
+.env.production
+.env.staging
 *.local
 .DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+*.swp
+*.tsbuildinfo
 supabase/.temp/
-
 .vercel

@@ -1,0 +1,45 @@
+{
+  "projectName": "Automation Opportunity Tracker",
+  "description": "AI-assisted tool for capturing, scoring, and managing automation opportunities. React + TypeScript + Supabase + OpenAI GPT-4o.",
+  "hooks": {
+    "preToolUse": [
+      ".claude/hooks/block-dangerous.sh",
+      ".claude/hooks/block-secret-push.sh"
+    ]
+  },
+  "rules": [
+    ".claude/rules/security.md",
+    ".claude/rules/database.md",
+    ".claude/rules/components.md",
+    ".claude/rules/typescript.md"
+  ],
+  "agents": {
+    "bug-catcher": ".claude/agents/bug-catcher.md",
+    "security-scanner": ".claude/agents/security-scanner.md",
+    "performance-auditor": ".claude/agents/performance-auditor.md",
+    "design-reviewer": ".claude/agents/design-reviewer.md"
+  },
+  "context": {
+    "alwaysRead": ["CLAUDE.md"],
+    "onStart": "Read CLAUDE.md in full before making any changes. All issues, priorities, and architecture decisions are documented there."
+  },
+  "preferences": {
+    "language": "TypeScript",
+    "framework": "React 18",
+    "styling": "Tailwind CSS + CSS custom properties",
+    "database": "Supabase",
+    "packageManager": "npm",
+    "commitStyle": "conventional"
+  },
+  "environment": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "preview": "npm run preview"
+  },
+  "notes": [
+    "Supabase credentials were previously hardcoded in src/lib/supabase.ts — fixed via env vars. block-secret-push.sh prevents recurrence.",
+    "prd-generator.ts is currently unused — BuildList.tsx has its own inline PRD logic. Phase 2 wires it up properly.",
+    "react-router-dom is installed but unused — remove it during Phase 2 cleanup.",
+    "All work phases are in CLAUDE.md. Always check phase and priority order before starting a task."
+  ]
+}

@@ -1,0 +1,11 @@
+- All components are in `src/components/`. Files are `PascalCase.tsx`.
+- Props interfaces are defined inline at the top of each component file.
+- Use Tailwind utility classes for all styling. No inline `style={{}}` except for dynamic computed values (e.g., score colors from JavaScript).
+- Use the semantic CSS tokens: `bg-app-bg`, `bg-app-surface`, `border-border`, `text-text-primary`, `text-text-muted`, `text-text-hint`, `text-step1/2/3`, `bg-step1/2/3-bg`, `text-ai`, `bg-ai-bg`.
+- Never use raw hex values in Tailwind classes like `bg-[#ffffff]` — use the CSS variable tokens.
+- State that persists across sessions goes in Supabase, not `localStorage`.
+- `localStorage` keys use the `yp-` prefix only.
+- Components receive handler props from `App.tsx` — they do not call Supabase directly (exception: `ChatDiscovery.tsx` calls `callChatDiscovery()`).
+- Event handler prop names: `onAction`. Local handler names: `handleAction`.
+- Icons come from `lucide-react` only. Standard sizes: header `size={14}`, card actions `size={12}`, inputs `w-4 h-4`.
+- Do not refactor `ChatDiscovery.tsx` voice recognition logic unless the task explicitly requires it.
