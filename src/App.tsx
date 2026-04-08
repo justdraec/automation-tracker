@@ -163,12 +163,12 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-hidden">
-          {activeView === 'chat' && (
+        {/* Content — views stay mounted to preserve state */}
+        <main className="flex-1 overflow-hidden relative">
+          <div className={activeView === 'chat' ? 'flex flex-col h-full' : 'hidden'}>
             <ChatDiscovery onSubmit={handleNewOpportunity} />
-          )}
-          {activeView === 'list' && (
+          </div>
+          <div className={activeView === 'list' ? 'flex flex-col h-full' : 'hidden'}>
             <OpportunitiesList
               entries={entries}
               builderMode={builderMode}
@@ -177,10 +177,10 @@ export default function App() {
               onStatusChange={handleStatusChange}
               onSwitchToSubmit={() => setActiveView('chat')}
             />
-          )}
-          {activeView === 'buildlist' && (
+          </div>
+          <div className={activeView === 'buildlist' ? 'flex flex-col h-full' : 'hidden'}>
             <BuildList entries={entries} builderMode={builderMode} />
-          )}
+          </div>
         </main>
       </div>
 

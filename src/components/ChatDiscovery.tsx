@@ -9,6 +9,13 @@ interface Props {
   onSubmit: (opp: Opportunity) => void
 }
 
+interface WorkflowNode {
+  id: string
+  type: 'trigger' | 'filter' | 'action' | 'output'
+  label: string
+  addedAt: number
+}
+
 // Discovery flow stages for the right panel
 const DISCOVERY_STAGES = [
   { key: 'area', label: 'Task Name' },
@@ -29,6 +36,79 @@ const DISCOVERY_STAGES = [
   { key: 'feasibility', label: 'Feasibility' },
 ]
 
+function extractJSON(text: string): Record<string, string> | null {
+  const fenced = text.match(/```(?:json)?\n?([\s\S]*?)\n?```/)
+  if (fenced) { try { return JSON.parse(fenced[1]) } catch { /* try next */ } }
+  const bare = text.match(/\{[\s\S]*"complete"\s*:\s*true[\s\S]*\}/)
+  if (bare) { try { return JSON.parse(bare[0]) } catch { /* give up */ } }
+  return null
+}
+
+function inferField(question: string): string | null {
+  const q = question.toLowerCase()
+  if (q.includes('trigger') || q.includes('kicks it off') || q.includes('starts the process')) return 'clientTrigger'
+  if (q.includes('tool') || q.includes('software') || q.includes('platform') || q.includes('system') || q.includes('apps')) return 'tools'
+  if (q.includes('step') || q.includes('how do you') || q.includes('walk me through')) return 'clientSteps'
+  if (q.includes('output') || q.includes('result') || q.includes('what changes') || q.includes('end up with') || q.includes('created') || q.includes('sent')) return 'output'
+  if (q.includes('metric') || q.includes('success') || q.includes('know it') || q.includes('working correctly')) return 'metric'
+  if (q.includes('how often') || q.includes('frequency') || q.includes('how many times')) return 'frequency'
+  if (q.includes('who') || q.includes('owner') || q.includes('team') || q.includes('department') || q.includes('handles')) return 'owner'
+  if (q.includes('how long') || q.includes('how much time') || q.includes('minutes') || q.includes('hours per week')) return 'minutes'
+  if (q.includes('urgent') || q.includes('priority') || q.includes('immediately') || q.includes('daily pain')) return 'urgency'
+  if (q.includes('impact') || q.includes('difference') || q.includes('game-changer') || q.includes('how big')) return 'impact'
+  if (q.includes('pain') || q.includes('frustrat') || q.includes('time-consuming')) return 'pain'
+  if (q.includes('input') || q.includes('data') || q.includes('information') || q.includes('looking at')) return 'clientInput'
+  if (q.includes('ideal') || q.includes('automat') || q.includes('perfectly') || q.includes('desired')) return 'desired'
+  if (q.includes('feasib') || q.includes('integrat') || q.includes('api') || q.includes('connection point')) return 'feasibility'
+  if (q.includes('name') || q.includes('short name') || q.includes('call this')) return 'area'
+  return null
+}
+
+function deriveNodes(data: Partial<Record<string, string>>): WorkflowNode[] {
+  const nodes: WorkflowNode[] = []
+  const now = Date.now()
+  if (data.clientTrigger) nodes.push({ id: 'trigger', type: 'trigger', label: data.clientTrigger.slice(0, 30), addedAt: now })
+  if (data.tools) {
+    data.tools.split(',').slice(0, 2).forEach((tool, i) =>
+      nodes.push({ id: `filter-${i}`, type: 'filter', label: tool.trim().slice(0, 20), addedAt: now + i })
+    )
+  }
+  if (data.clientSteps) nodes.push({ id: 'action', type: 'action', label: data.area || 'Automation Action', addedAt: now + 10 })
+  if (data.output || data.clientOutput) nodes.push({ id: 'output', type: 'output', label: (data.output || data.clientOutput || '').slice(0, 25), addedAt: now + 20 })
+  return nodes
+}
+
+function generateSuggestions(aiMessage: string): string[] {
+  const msg = aiMessage.toLowerCase()
+  if (msg.includes('urgent') || msg.includes('priority') || msg.includes('immediately'))
+    return ['Very urgent, needs fixing now', 'Medium priority, within the month', 'Low priority, nice to have']
+  if (msg.includes('how often') || msg.includes('frequency') || msg.includes('how many times'))
+    return ['Multiple times a day', 'Once a day', 'Weekly', 'Monthly']
+  if (msg.includes('tool') || msg.includes('software') || msg.includes('platform') || msg.includes('apps'))
+    return ['Google Workspace', 'Microsoft 365', 'HubSpot / CRM', 'Slack', 'Custom / Internal tool']
+  if (msg.includes('how long') || msg.includes('how much time') || msg.includes('minutes'))
+    return ['Less than 15 minutes', '15–30 minutes', '30–60 minutes', 'Over an hour']
+  if (msg.includes('who') || msg.includes('team') || msg.includes('department'))
+    return ['Just me', 'My whole team', 'Multiple departments', 'The whole company']
+  if (msg.includes('trigger') || msg.includes('starts') || msg.includes('initiated') || msg.includes('kicks'))
+    return ['New email arrives', 'Form submission', 'Calendar event', 'Manual trigger', 'New record in database']
+  if (msg.includes('impact') || msg.includes('difference') || msg.includes('game-changer'))
+    return ['Minor improvement', 'Moderate — saves noticeable time', 'Significant — frees up hours', 'Game changer for the team']
+  if (msg.includes('automat') || msg.includes('ideal') || msg.includes('perfectly'))
+    return ['Fully hands-off, no manual steps', 'Mostly automated with a quick review', 'Automated but I want approval before sending']
+  if (msg.includes('output') || msg.includes('result') || msg.includes('done') || msg.includes('created'))
+    return ['Record created in our system', 'Email/notification sent', 'Report generated', 'What happens when it fails?']
+  if (msg.includes('step') || msg.includes('process') || msg.includes('walk me'))
+    return ['I can list the steps', 'Are there edge cases to consider?', 'Someone needs to approve before it goes out']
+  if (msg.includes('input') || msg.includes('data') || msg.includes('information'))
+    return ['Spreadsheet or CSV', 'Email contents', 'Form submission data', 'Is any of this data sensitive?']
+  if (msg.includes('pain') || msg.includes('frustrat') || msg.includes('time-consuming'))
+    return ['It takes too long', 'Too many manual steps', 'Errors happen frequently', 'What do we do when it breaks?']
+  if (msg.includes('success') || msg.includes('metric') || msg.includes('measure'))
+    return ['Fewer errors', 'Faster turnaround', 'Hours saved per week', 'Does anyone need a log of what happened?']
+  return []
+}
+
 export default function ChatDiscovery({ onSubmit }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -37,12 +117,17 @@ export default function ChatDiscovery({ onSubmit }: Props) {
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null)
   const [completionData, setCompletionData] = useState<Record<string, string> | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [contextSuggestions, setContextSuggestions] = useState<string[]>([])
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([])
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Web Speech API has no TS types
   const recognitionRef = useRef<any>(null)
   const manualStopRef = useRef(false)
+  const collectedDataRef = useRef<Record<string, string>>({})
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0]
@@ -80,14 +165,12 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Web Speech API has no TS types
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) return
-
     manualStopRef.current = false
     const recognition = new SpeechRecognition()
     recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-US'
     let finalTranscript = ''
-
     recognition.onresult = (event: any) => {
       let interim = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -114,10 +197,47 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     setInput('')
     setLoading(false)
     setListening(false)
-    setCompletionData(null)
+    setWorkflowNodes([])
+    setEditingId(null)
+    setEditText('')
     setShowConfirm(false)
+    setCompletionData(null)
+    setContextSuggestions([])
+    collectedDataRef.current = {}
     manualStopRef.current = true
     recognitionRef.current?.stop()
+  }
+
+  function updateWorkflowFromMessages(msgs: ChatMessage[]): void {
+    const data: Record<string, string> = {}
+    for (let i = 0; i < msgs.length; i++) {
+      if (msgs[i].role === 'user') {
+        if (i === 0) {
+          data.area = msgs[i].content.slice(0, 40)
+          continue
+        }
+        const prevMsg = msgs[i - 1]
+        if (prevMsg && prevMsg.role === 'assistant') {
+          const field = inferField(prevMsg.content)
+          if (field) data[field] = msgs[i].content.slice(0, 100)
+        }
+      }
+    }
+    collectedDataRef.current = data
+    setWorkflowNodes(deriveNodes(data))
+  }
+
+  function handleAIResponse(reply: string, allMessages: ChatMessage[]): void {
+    const data = extractJSON(reply)
+    if (data && data.complete) {
+      setCompletionData(data)
+      setShowConfirm(true)
+      setContextSuggestions([])
+      setWorkflowNodes(deriveNodes(data))
+    } else {
+      setContextSuggestions(generateSuggestions(reply))
+      updateWorkflowFromMessages(allMessages)
+    }
   }
 
   async function doSend(messageContent: string): Promise<void> {
@@ -127,6 +247,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     setMessages(newMessages)
     setInput('')
     setAttachedFile(null)
+    setContextSuggestions([])
     setLoading(true)
     if (inputRef.current) inputRef.current.style.height = '28px'
 
@@ -134,14 +255,38 @@ export default function ChatDiscovery({ onSubmit }: Props) {
       const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }))
       const reply = await callChatDiscovery(apiMessages)
       const assistantMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: reply, timestamp: new Date() }
-      setMessages([...newMessages, assistantMsg])
-      const jsonMatch = reply.match(/```json\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        try {
-          const data = JSON.parse(jsonMatch[1])
-          if (data.complete) { setCompletionData(data); setShowConfirm(true) }
-        } catch { /* malformed JSON */ }
-      }
+      const withReply = [...newMessages, assistantMsg]
+      setMessages(withReply)
+      handleAIResponse(reply, withReply)
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: "Sorry, I had trouble processing that. Could you try again?", timestamp: new Date() }])
+    }
+    setLoading(false)
+  }
+
+  async function editMessage(msgId: string, newContent: string): Promise<void> {
+    setEditingId(null)
+    setEditText('')
+    setShowConfirm(false)
+    setCompletionData(null)
+    setWorkflowNodes([])
+    setContextSuggestions([])
+
+    const idx = messages.findIndex(m => m.id === msgId)
+    if (idx === -1) return
+
+    const editedMsg: ChatMessage = { ...messages[idx], content: newContent }
+    const truncated = [...messages.slice(0, idx), editedMsg]
+    setMessages(truncated)
+    setLoading(true)
+
+    try {
+      const apiMessages = truncated.map(m => ({ role: m.role, content: m.content }))
+      const reply = await callChatDiscovery(apiMessages)
+      const assistantMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: reply, timestamp: new Date() }
+      const withReply = [...truncated, assistantMsg]
+      setMessages(withReply)
+      handleAIResponse(reply, withReply)
     } catch {
       setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: "Sorry, I had trouble processing that. Could you try again?", timestamp: new Date() }])
     }
@@ -194,13 +339,12 @@ export default function ChatDiscovery({ onSubmit }: Props) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
 
-  // Derive current discovery step from message count
   const currentStep = Math.min(Math.floor(messages.filter(m => m.role === 'user').length), DISCOVERY_STAGES.length - 1)
   const accuracy = completionData
     ? Math.round(Object.values(completionData).filter(v => v && v !== 'true').length / DISCOVERY_STAGES.length * 100)
     : Math.round(currentStep / DISCOVERY_STAGES.length * 100)
 
-  const suggestions = [
+  const welcomeSuggestions = [
     'Automate invoice processing',
     'Set up a lead alert',
     'Build a weekly report',
@@ -220,7 +364,6 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           What would you like to automate?
         </h2>
 
-        {/* Input */}
         <div className="w-full max-w-[600px] relative bg-white border border-outline-variant/30 rounded-full flex items-center px-2 py-2 shadow-xl focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all mb-5">
           <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
           <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full">
@@ -242,11 +385,8 @@ export default function ChatDiscovery({ onSubmit }: Props) {
               <Icon name={listening ? 'mic_off' : 'mic'} size={20} />
             </button>
           )}
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() && !attachedFile}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${input.trim() || attachedFile ? 'bg-primary text-on-primary hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}
-          >
+          <button onClick={sendMessage} disabled={!input.trim() && !attachedFile}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${input.trim() || attachedFile ? 'bg-primary text-on-primary hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
             <Icon name="arrow_upward" size={20} />
           </button>
         </div>
@@ -260,7 +400,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
         )}
 
         <div className="flex flex-wrap gap-2 justify-center max-w-[600px]">
-          {suggestions.map(s => (
+          {welcomeSuggestions.map(s => (
             <button key={s} onClick={() => sendSuggestion(s)}
               className="text-left p-3 px-4 rounded-2xl bg-white border border-outline-variant/20 hover:border-primary/40 hover:shadow-lg transition-all text-xs font-medium text-on-surface-variant">
               {s}
@@ -277,7 +417,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/10">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/10 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center">
               <Icon name="smart_toy" size={16} className="text-on-primary" />
@@ -288,6 +428,39 @@ export default function ChatDiscovery({ onSubmit }: Props) {
             <Icon name="refresh" size={14} /> New conversation
           </button>
         </div>
+
+        {/* Live Strategy Mapping panel */}
+        {workflowNodes.length > 0 && (
+          <div className="border-b border-outline-variant/10 bg-surface px-8 py-5 shrink-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block"></span>
+              Live Strategy Mapping
+            </p>
+            <div className="flex items-center gap-0 overflow-x-auto pb-1">
+              {workflowNodes.map((node, i) => (
+                <div key={node.id} className="flex items-center gap-0 node-enter">
+                  <div className={`flex-shrink-0 px-4 py-3 rounded-xl border-t-2 bg-white shadow-sm min-w-[140px]
+                    ${node.type === 'trigger' ? 'border-t-primary' : ''}
+                    ${node.type === 'filter' ? 'border-t-secondary' : ''}
+                    ${node.type === 'action' ? 'border-t-tertiary-fixed-dim' : ''}
+                    ${node.type === 'output' ? 'border-t-green-500' : ''}
+                    border border-outline-variant/10`}>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-on-surface/30 mb-1">
+                      {node.type}
+                    </p>
+                    <p className="text-xs font-bold text-on-surface leading-tight">{node.label}</p>
+                  </div>
+                  {i < workflowNodes.length - 1 && (
+                    <div className="flex items-center px-2 shrink-0">
+                      <div className="h-px w-6 bg-outline-variant/40"></div>
+                      <span className="material-symbols-outlined text-[14px] text-outline-variant/60">arrow_forward</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
@@ -303,19 +476,57 @@ export default function ChatDiscovery({ onSubmit }: Props) {
                       {msg.content.replace(/```json[\s\S]*?```/g, '').trim()}
                     </div>
                   </div>
-                ) : (
+                ) : editingId === msg.id ? (
+                  /* Editing mode */
                   <div className="flex flex-row-reverse gap-4">
                     <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">U</div>
-                    <div className="bg-primary text-on-primary p-4 rounded-3xl rounded-tr-none max-w-lg shadow-lg shadow-primary/15 text-[14px] leading-relaxed">
-                      {msg.content.includes('[Attached file:') ? (
-                        <>
-                          {msg.content.split('\n---\n')[0] || 'Attached a document'}
-                          <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-white/10 rounded-lg text-xs">
-                            <Icon name="description" size={14} />
-                            {msg.content.match(/\[Attached file: (.+?)\]/)?.[1] || 'file'}
-                          </div>
-                        </>
-                      ) : msg.content}
+                    <div className="max-w-lg w-full">
+                      <textarea
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editMessage(msg.id, editText) }
+                          if (e.key === 'Escape') { setEditingId(null); setEditText('') }
+                        }}
+                        autoFocus
+                        className="w-full p-4 rounded-2xl border-2 border-primary bg-white text-sm text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
+                        rows={3}
+                      />
+                      <div className="flex gap-2 mt-2 justify-end">
+                        <button onClick={() => editMessage(msg.id, editText)}
+                          className="px-4 py-1.5 rounded-full bg-primary text-on-primary text-xs font-semibold hover:opacity-90 transition-all">
+                          Save & resend
+                        </button>
+                        <button onClick={() => { setEditingId(null); setEditText('') }}
+                          className="px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant text-xs font-medium hover:bg-surface-container-low transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Normal user message with edit-on-hover */
+                  <div className="flex flex-row-reverse gap-4 group">
+                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">U</div>
+                    <div className="relative">
+                      <div className="bg-primary text-on-primary p-4 rounded-3xl rounded-tr-none max-w-lg shadow-lg shadow-primary/15 text-[14px] leading-relaxed">
+                        {msg.content.includes('[Attached file:') ? (
+                          <>
+                            {msg.content.split('\n---\n')[0] || 'Attached a document'}
+                            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-white/10 rounded-lg text-xs">
+                              <Icon name="description" size={14} />
+                              {msg.content.match(/\[Attached file: (.+?)\]/)?.[1] || 'file'}
+                            </div>
+                          </>
+                        ) : msg.content}
+                      </div>
+                      <button
+                        onClick={() => { setEditingId(msg.id); setEditText(msg.content.split('\n---\n')[0] || msg.content) }}
+                        className="absolute -left-8 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-surface-container-low border border-outline-variant/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container"
+                        title="Edit this message"
+                      >
+                        <Icon name="edit" size={12} className="text-on-surface-variant" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -338,33 +549,40 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           </div>
         </div>
 
-        {/* Confirmation */}
+        {/* Sticky confirmation bar */}
         {showConfirm && completionData && (
-          <div className="mx-4 mb-3 animate-fade-in">
-            <div className="bg-surface-container-low border-2 border-primary/20 rounded-2xl p-6 text-center space-y-4">
-              <Icon name="task_alt" size={40} className="text-primary" filled />
-              <h3 className="font-headline font-bold text-xl text-on-surface">Discovery Complete</h3>
-              <p className="text-on-surface-variant text-sm">{completionData.area}</p>
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
-                  className="flex-1 max-w-xs py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all"
-                >
-                  Save Opportunity
-                </button>
-                <button
-                  onClick={() => { setShowConfirm(false); setCompletionData(null) }}
-                  className="px-5 py-3 rounded-xl border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors"
-                >
-                  Keep editing
-                </button>
-              </div>
+          <div className="sticky bottom-0 mx-6 mb-4 p-5 bg-white border-2 border-primary rounded-2xl shadow-xl shadow-primary/15 flex items-center justify-between gap-4 z-20 animate-fade-in">
+            <div>
+              <p className="font-headline font-bold text-on-surface">Ready to save</p>
+              <p className="text-sm text-on-surface-variant mt-0.5">{completionData.area || 'New opportunity'}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
+                className="px-6 py-2.5 bg-primary text-white rounded-full font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
+                Save Opportunity
+              </button>
+              <button onClick={() => { setShowConfirm(false); setCompletionData(null) }}
+                className="px-4 py-2.5 rounded-full border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors text-sm">
+                Keep editing
+              </button>
             </div>
           </div>
         )}
 
+        {/* Contextual suggestion chips */}
+        {contextSuggestions.length > 0 && !loading && (
+          <div className="flex flex-wrap gap-2 px-6 pb-3">
+            {contextSuggestions.map(s => (
+              <button key={s} onClick={() => sendSuggestion(s)}
+                className="px-4 py-2 rounded-full bg-white border border-outline-variant/30 text-xs font-medium text-on-surface hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all">
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Input bar */}
-        <div className="border-t border-outline-variant/10 bg-surface/80 backdrop-blur-sm">
+        <div className="border-t border-outline-variant/10 bg-surface/80 backdrop-blur-sm shrink-0">
           <div className="max-w-3xl mx-auto px-4 py-3">
             {attachedFile && (
               <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary-fixed border border-primary-fixed-dim rounded-xl text-xs animate-fade-in">
@@ -396,11 +614,8 @@ export default function ChatDiscovery({ onSubmit }: Props) {
                   <Icon name={listening ? 'mic_off' : 'mic'} size={20} />
                 </button>
               )}
-              <button
-                onClick={sendMessage}
-                disabled={(!input.trim() && !attachedFile) || loading}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${(input.trim() || attachedFile) && !loading ? 'bg-primary text-on-primary hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}
-              >
+              <button onClick={sendMessage} disabled={(!input.trim() && !attachedFile) || loading}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${(input.trim() || attachedFile) && !loading ? 'bg-primary text-on-primary hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
                 {loading ? <Icon name="progress_activity" size={20} className="icon-spin" /> : <Icon name="arrow_upward" size={20} />}
               </button>
             </div>
@@ -427,7 +642,6 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           </div>
         </div>
 
-        {/* Model accuracy */}
         <div className="p-5 border-b border-outline-variant/10">
           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">Model Accuracy</p>
           <div className="flex items-end gap-2 mb-2">
@@ -439,7 +653,6 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           </div>
         </div>
 
-        {/* Sequence steps */}
         <div className="p-5 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-3">Sequence Steps</p>
           <div className="space-y-1">
@@ -464,13 +677,10 @@ export default function ChatDiscovery({ onSubmit }: Props) {
           </div>
         </div>
 
-        {/* Execute CTA */}
         {showConfirm && completionData && (
           <div className="p-5 border-t border-outline-variant/10">
-            <button
-              onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
-              className="w-full py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all text-sm"
-            >
+            <button onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
+              className="w-full py-3 bg-primary text-on-primary rounded-xl font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all text-sm">
               Execute Current Flow
             </button>
           </div>

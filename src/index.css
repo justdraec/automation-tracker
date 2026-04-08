@@ -163,6 +163,16 @@ h1, h2, h3, .font-headline {
   animation: spin 1s linear infinite;
 }
 
+/* ── Workflow node pop-in ── */
+@keyframes nodeEnter {
+  0%   { opacity: 0; transform: scale(0.85) translateY(6px); }
+  60%  { transform: scale(1.04) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.node-enter > div:first-child {
+  animation: nodeEnter 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
