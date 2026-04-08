@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
 import type { Opportunity } from '@/lib/types'
+import Icon from '@/components/Icon'
 
 interface Props {
   onClose: () => void
@@ -42,13 +42,28 @@ export default function SettingsModal({ onClose, onReload, entries, setEntries }
     onReload()
   }
 
-  function exportData() {
+  function exportJSON() {
     const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `automation-tracker-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `triggr-flow-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
-    showMsg('Exported!', 'ok')
+    showMsg('JSON exported!', 'ok')
+  }
+
+  function exportCSV() {
+    const headers = ['area', 'owner', 'frequency', 'pain', 'tools', 'score', 'priority', 'status', 'timesaved']
+    const rows = entries.map(e => headers.map(h => {
+      const val = String((e as unknown as Record<string, unknown>)[h] ?? '')
+      return val.includes(',') || val.includes('"') || val.includes('\n') ? `"${val.replace(/"/g, '""')}"` : val
+    }).join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `triggr-flow-export.csv`
+    a.click()
+    showMsg('CSV exported!', 'ok')
   }
 
   function importData(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -66,14 +81,14 @@ export default function SettingsModal({ onClose, onReload, entries, setEntries }
     reader.readAsText(file)
   }
 
-  const inputCls = "w-full px-3 py-2 rounded-lg border border-border bg-app-bg text-sm focus:border-step2 focus:outline-none focus:ring-2 focus:ring-step2/10"
-
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-app-surface rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold">Settings</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-app-bg text-text-muted"><X size={18} /></button>
+      <div className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-headline font-bold text-on-surface">Settings</h3>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors">
+            <Icon name="close" size={20} />
+          </button>
         </div>
 
         <Section title="Supabase">
@@ -97,23 +112,25 @@ export default function SettingsModal({ onClose, onReload, entries, setEntries }
 
         <Section title="Score Weights">
           <div className="grid grid-cols-3 gap-2">
-            <div><label className="text-[10px] text-text-muted">Impact</label><input type="number" value={wImpact} onChange={e => setWImpact(parseInt(e.target.value) || 0)} className={inputCls} /></div>
-            <div><label className="text-[10px] text-text-muted">Urgency</label><input type="number" value={wUrgency} onChange={e => setWUrgency(parseInt(e.target.value) || 0)} className={inputCls} /></div>
-            <div><label className="text-[10px] text-text-muted">Feasibility</label><input type="number" value={wFeasibility} onChange={e => setWFeasibility(parseInt(e.target.value) || 0)} className={inputCls} /></div>
+            <div><label className="text-[10px] font-bold text-on-surface-variant uppercase">Impact</label><input type="number" value={wImpact} onChange={e => setWImpact(parseInt(e.target.value) || 0)} className="field-input mt-1" /></div>
+            <div><label className="text-[10px] font-bold text-on-surface-variant uppercase">Urgency</label><input type="number" value={wUrgency} onChange={e => setWUrgency(parseInt(e.target.value) || 0)} className="field-input mt-1" /></div>
+            <div><label className="text-[10px] font-bold text-on-surface-variant uppercase">Feasibility</label><input type="number" value={wFeasibility} onChange={e => setWFeasibility(parseInt(e.target.value) || 0)} className="field-input mt-1" /></div>
           </div>
-          <p className="text-[10px] text-text-hint mt-1">Must add to 100</p>
+          <p className="text-[10px] text-on-surface-variant/50 mt-1.5">Weights are saved to this browser only. Must add to 100.</p>
         </Section>
 
-        <div className="flex gap-2 flex-wrap mt-4">
-          <button onClick={save} className="px-4 py-2 rounded-lg bg-step2 text-white text-sm font-medium">Save</button>
-          <button onClick={exportData} className="px-4 py-2 rounded-lg border border-border text-sm text-text-muted hover:bg-app-bg">Export JSON</button>
-          <label className="px-4 py-2 rounded-lg border border-border text-sm text-text-muted hover:bg-app-bg cursor-pointer">
+        <div className="flex gap-2 flex-wrap mt-5">
+          <button onClick={save} className="px-6 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">Save</button>
+          <button onClick={exportJSON} className="px-5 py-2.5 rounded-full border border-outline-variant text-on-surface text-sm font-medium hover:bg-surface-container-low transition-colors">Export JSON</button>
+          <button onClick={exportCSV} className="px-5 py-2.5 rounded-full border border-outline-variant text-on-surface text-sm font-medium hover:bg-surface-container-low transition-colors flex items-center gap-1.5">
+            <Icon name="download" size={16} /> Export CSV
+          </button>
+          <label className="px-5 py-2.5 rounded-full border border-outline-variant text-on-surface text-sm font-medium hover:bg-surface-container-low transition-colors cursor-pointer">
             Import JSON <input type="file" accept=".json" onChange={importData} className="hidden" />
           </label>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-text-muted hover:bg-app-bg">Close</button>
         </div>
 
-        {msg && <p className={`text-xs mt-3 ${msgType === 'err' ? 'text-red-500' : 'text-emerald-600'}`}>{msg}</p>}
+        {msg && <p className={`text-xs mt-3 font-medium ${msgType === 'err' ? 'text-error' : 'text-[#008545]'}`}>{msg}</p>}
       </div>
     </div>
   )
@@ -121,9 +138,9 @@ export default function SettingsModal({ onClose, onReload, entries, setEntries }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4 pb-4 border-b border-border last:border-0">
-      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">{title}</h4>
-      <div className="space-y-2">{children}</div>
+    <div className="mb-5 pb-5 border-b border-outline-variant/10 last:border-0">
+      <h4 className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-3">{title}</h4>
+      <div className="space-y-2.5">{children}</div>
     </div>
   )
 }
@@ -133,9 +150,9 @@ function Input({ label, value, onChange, type = 'text', placeholder }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-text-muted mb-1">{label}</label>
+      <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full px-3 py-2 rounded-lg border border-border bg-app-bg text-sm focus:border-step2 focus:outline-none focus:ring-2 focus:ring-step2/10" />
+        className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-on-surface-variant/40" />
     </div>
   )
 }

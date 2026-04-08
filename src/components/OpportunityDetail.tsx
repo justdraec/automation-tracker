@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Wrench, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react'
+import Icon from '@/components/Icon'
 import type { Opportunity, OpportunityStatus } from '@/lib/types'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/types'
 import { getScoreColor } from '@/lib/scoring'
@@ -62,16 +62,16 @@ export default function OpportunityDetail({ entry: e, builderMode, onUpdate, onD
         )}
         <div className="flex items-center gap-1 ml-1">
           <IconBtn title="Generate PRD" onClick={handleGeneratePRD}>
-            <FileText size={14} />
+            <Icon name="description" size={14} />
           </IconBtn>
           {builderMode && (
             <IconBtn title={showBuilder ? 'Close builder' : 'Open builder'} onClick={() => setShowBuilder(!showBuilder)} active={showBuilder}>
-              <Wrench size={14} />
+              <Icon name="build" size={14} />
             </IconBtn>
           )}
           {builderMode && (
             <IconBtn title="Delete" onClick={() => { if (confirm('Delete "' + e.area + '"?')) onDelete(e.id) }} danger>
-              <Trash2 size={14} />
+              <Icon name="delete" size={14} />
             </IconBtn>
           )}
         </div>
@@ -87,7 +87,7 @@ export default function OpportunityDetail({ entry: e, builderMode, onUpdate, onD
                 <span className="text-xs font-semibold text-[var(--text-muted)]">Generated PRD</span>
                 <div className="flex gap-1.5">
                   <button onClick={() => navigator.clipboard.writeText(prdText)} className="text-[11px] text-[var(--accent)] hover:underline flex items-center gap-1">
-                    <Copy size={11} /> Copy
+                    <Icon name="content_copy" size={11} /> Copy
                   </button>
                   <button onClick={() => setShowPRD(false)} className="text-[11px] text-[var(--text-hint)] hover:text-[var(--text-muted)]">Close</button>
                 </div>
@@ -126,7 +126,7 @@ export default function OpportunityDetail({ entry: e, builderMode, onUpdate, onD
               onClick={() => setShowDiscovery(!showDiscovery)}
               className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors mb-2"
             >
-              {showDiscovery ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {showDiscovery ? <Icon name="expand_less" size={12} /> : <Icon name="expand_more" size={12} />}
               Client discovery details
             </button>
             {showDiscovery && (
