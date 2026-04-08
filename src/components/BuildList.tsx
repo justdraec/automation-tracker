@@ -52,14 +52,12 @@ export default function BuildList({ entries, builderMode }: Props) {
   }
 
   return (
-    <div>
-      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h3 className="text-base font-bold">Build list — ranked by score</h3>
-          <p className="text-xs text-text-muted mt-1">Sorted by weighted score (Impact 40%, Urgency 35%, Feasibility 25%)</p>
-        </div>
+    <div className="flex flex-col h-full">
+      <div className="bg-[var(--surface)] border-b border-[var(--border-color)] px-5 py-3.5 flex items-center gap-3 flex-shrink-0">
+        <h2 className="text-sm font-medium text-[var(--text-primary)] flex-1">Build list</h2>
+        <span className="text-[11px] text-[var(--text-muted)]">Ranked by score · Impact 40% · Urgency 35% · Feasibility 25%</span>
       </div>
-
+      <div className="flex-1 overflow-y-auto p-5">
       {!sorted.length ? (
         <div className="text-center py-12 border-2 border-dashed border-border rounded-[14px] bg-app-surface">
           <p className="text-text-hint font-medium">No opportunities yet</p>
@@ -127,6 +125,7 @@ export default function BuildList({ entries, builderMode }: Props) {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }

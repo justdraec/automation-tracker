@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Moon, Sun, Settings, Lock, Unlock, Grid3X3, Zap, Clock, BarChart3 } from 'lucide-react'
+import Sidebar from '@/components/Sidebar'
 import ChatDiscovery from '@/components/ChatDiscovery'
-import OpportunitiesList from '@/components/OpportunitiesList'
+import OpportunityDetail from '@/components/OpportunityDetail'
 import BuildList from '@/components/BuildList'
 import SettingsModal from '@/components/SettingsModal'
 import type { Opportunity, OpportunityStatus } from '@/lib/types'
 import { fetchOpportunities, createOpportunity, updateOpportunity, deleteOpportunity, updateStatus } from '@/lib/supabase'
 
-type Tab = 'submit' | 'opportunities' | 'buildlist'
+type ActiveView = 'chat' | 'opportunity' | 'buildlist'
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('submit')
   const [entries, setEntries] = useState<Opportunity[]>([])
   const [dark, setDark] = useState(false)
   const [builderMode, setBuilderMode] = useState(false)
@@ -18,16 +17,16 @@ export default function App() {
   const [showPwPrompt, setShowPwPrompt] = useState(false)
   const [pwInput, setPwInput] = useState('')
   const [pwError, setPwError] = useState(false)
-  const [syncStatus, setSyncStatus] = useState('Connecting...')
+
+  const [activeView, setActiveView] = useState<ActiveView>('chat')
+  const [activeOpportunityId, setActiveOpportunityId] = useState<number | null>(null)
 
   const loadEntries = useCallback(async () => {
-    setSyncStatus('Loading...')
     try {
       const data = await fetchOpportunities()
       setEntries(data)
-      setSyncStatus('Synced')
     } catch {
-      setSyncStatus('Offline')
+      // silent — offline fallback
     }
   }, [])
 
@@ -75,7 +74,13 @@ export default function App() {
     try {
       await createOpportunity(opp)
       await loadEntries()
-      setTab('opportunities')
+      // Select the newest entry
+      const data = await fetchOpportunities()
+      setEntries(data)
+      if (data.length > 0) {
+        setActiveView('opportunity')
+        setActiveOpportunityId(data[0].id)
+      }
     } catch (err) {
       console.error('Failed to save:', err)
     }
@@ -94,6 +99,10 @@ export default function App() {
     try {
       await deleteOpportunity(id)
       setEntries(prev => prev.filter(e => e.id !== id))
+      if (activeOpportunityId === id) {
+        setActiveView('chat')
+        setActiveOpportunityId(null)
+      }
     } catch (err) {
       console.error('Failed to delete:', err)
     }
@@ -108,114 +117,73 @@ export default function App() {
     }
   }
 
-  const highCount = entries.filter(e => e.priority === 'high').length
-  const avgScore = entries.length
-    ? (entries.reduce((a, e) => a + (e.score || 0), 0) / entries.length).toFixed(1)
-    : '--'
-  const totalSaved = entries.reduce((a, e) => a + (parseFloat(e.timesaved) || 0), 0)
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'submit', label: '+ Submit' },
-    { id: 'opportunities', label: 'Opportunities' },
-    { id: 'buildlist', label: 'Build List' },
-  ]
+  const activeEntry = activeOpportunityId ? entries.find(e => e.id === activeOpportunityId) : null
 
   return (
-    <div className="max-w-[960px] mx-auto px-4 py-6 sm:px-6">
-      {/* Header */}
-      <div className="bg-[#1c1917] dark:bg-[#0f0f1a] rounded-[14px] px-5 py-4 mb-5 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">Automation Opportunity Tracker</h1>
-          <p className="text-xs text-white/40 mt-1">by Drae</p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-1.5 flex-wrap">
-            <Stat icon={<Grid3X3 size={13} />} label="Total" value={String(entries.length)} />
-            <Stat icon={<Zap size={13} />} label="High" value={String(highCount)} />
-            <Stat icon={<BarChart3 size={13} />} label="Avg" value={avgScore} />
-            <Stat icon={<Clock size={13} />} label="Saved" value={`${totalSaved} hrs/wk`} />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[11px] ${syncStatus === 'Synced' ? 'text-emerald-400' : syncStatus === 'Offline' ? 'text-red-400' : 'text-white/40'}`}>
-              {syncStatus}
-            </span>
-            <HeaderBtn onClick={toggleDark} title="Toggle dark mode">
-              {dark ? <Sun size={14} /> : <Moon size={14} />}
-            </HeaderBtn>
-            <HeaderBtn onClick={toggleBuilder} title="Builder mode" active={builderMode}>
-              {builderMode ? <Unlock size={14} /> : <Lock size={14} />}
-            </HeaderBtn>
-            <HeaderBtn onClick={() => setShowSettings(true)} title="Settings">
-              <Settings size={14} />
-            </HeaderBtn>
-          </div>
-          {builderMode && (
-            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">
-              Builder mode
-            </span>
-          )}
-        </div>
-      </div>
+    <div className="flex h-screen overflow-hidden bg-[var(--app-bg)]">
+      {/* Sidebar */}
+      <Sidebar
+        entries={entries}
+        activeId={activeOpportunityId}
+        builderMode={builderMode}
+        dark={dark}
+        onSelectOpportunity={(id) => {
+          setActiveView('opportunity')
+          setActiveOpportunityId(id)
+        }}
+        onNewOpportunity={() => {
+          setActiveView('chat')
+          setActiveOpportunityId(null)
+        }}
+        onToggleDark={toggleDark}
+        onToggleBuilder={toggleBuilder}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenBuildList={() => {
+          setActiveView('buildlist')
+          setActiveOpportunityId(null)
+        }}
+      />
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-app-surface border border-border rounded-xl mb-5">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all
-              ${tab === t.id
-                ? 'bg-[#1c1917] dark:bg-[#2a2d4a] text-white shadow-md'
-                : 'text-text-muted hover:bg-app-bg hover:text-text-primary'
-              }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Main panel */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {activeView === 'chat' && (
+          <ChatDiscovery onSubmit={handleNewOpportunity} />
+        )}
+        {activeView === 'opportunity' && activeEntry && (
+          <OpportunityDetail
+            entry={activeEntry}
+            builderMode={builderMode}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onStatusChange={handleStatusChange}
+          />
+        )}
+        {activeView === 'buildlist' && (
+          <BuildList entries={entries} builderMode={builderMode} />
+        )}
       </div>
-
-      {/* Tab Content */}
-      {tab === 'submit' && (
-        <ChatDiscovery onSubmit={handleNewOpportunity} />
-      )}
-      {tab === 'opportunities' && (
-        <OpportunitiesList
-          entries={entries}
-          builderMode={builderMode}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onStatusChange={handleStatusChange}
-          onSwitchToSubmit={() => setTab('submit')}
-        />
-      )}
-      {tab === 'buildlist' && (
-        <BuildList
-          entries={entries}
-          builderMode={builderMode}
-        />
-      )}
 
       {/* Password Prompt */}
       {showPwPrompt && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-app-surface rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-base font-bold mb-4">Enter builder password</h3>
+          <div className="bg-[var(--surface)] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-base font-bold mb-4 text-[var(--text-primary)]">Enter builder password</h3>
             <input
               type="password"
               value={pwInput}
               onChange={e => { setPwInput(e.target.value); setPwError(false) }}
               onKeyDown={e => e.key === 'Enter' && checkPassword()}
-              placeholder="Password"
+              placeholder={localStorage.getItem('yp-builder-pw') ? 'Password' : 'Set a password in Settings first'}
               autoFocus
-              className="w-full px-4 py-2.5 rounded-lg border border-border bg-app-bg text-sm
-                         focus:border-step2 focus:outline-none focus:ring-2 focus:ring-step2/20"
+              className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--app-bg)] text-sm
+                         focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
             />
-            {pwError && <p className="text-xs text-red-500 mt-2">Incorrect password</p>}
+            {pwError && <p className="text-xs text-red-500 mt-2">{localStorage.getItem('yp-builder-pw') ? 'Incorrect password' : 'No password set. Go to Settings first.'}</p>}
             <div className="flex gap-2 mt-4">
-              <button onClick={checkPassword} className="flex-1 py-2 rounded-lg bg-step2 text-white text-sm font-medium">
+              <button onClick={checkPassword} className="flex-1 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-dark transition-colors">
                 Unlock
               </button>
-              <button onClick={() => setShowPwPrompt(false)} className="flex-1 py-2 rounded-lg border border-border text-text-muted text-sm">
+              <button onClick={() => setShowPwPrompt(false)} className="flex-1 py-2 rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] text-sm hover:bg-[var(--app-bg)] transition-colors">
                 Cancel
               </button>
             </div>
@@ -233,29 +201,5 @@ export default function App() {
         />
       )}
     </div>
-  )
-}
-
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-1.5 bg-white/[0.07] border border-white/[0.11] rounded-lg px-3 py-1.5 text-[11px] text-white/45">
-      <span className="opacity-50">{icon}</span>
-      {label} <span className="font-bold text-white">{value}</span>
-    </div>
-  )
-}
-
-function HeaderBtn({ children, onClick, title, active }: {
-  children: React.ReactNode; onClick: () => void; title: string; active?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`p-1.5 rounded-lg border transition-all text-white/50 hover:text-white hover:bg-white/10
-        ${active ? 'bg-purple-600/30 border-purple-500/50 text-purple-300' : 'bg-white/[0.07] border-white/[0.11]'}`}
-    >
-      {children}
-    </button>
   )
 }

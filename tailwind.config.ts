@@ -46,6 +46,17 @@ export default {
           DEFAULT: 'var(--danger)',
           bg: 'var(--danger-bg)',
         },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          dark: 'var(--accent-dark)',
+          light: 'var(--accent-light)',
+          border: 'var(--accent-border)',
+        },
+        sidebar: {
+          bg: 'var(--sidebar-bg)',
+          active: 'var(--sidebar-active)',
+          'active-border': 'var(--sidebar-active-border)',
+        },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],

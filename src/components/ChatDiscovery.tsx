@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, Mic, MicOff, RotateCcw, Paperclip, X, FileText } from 'lucide-react'
+import { Send, Loader2, Mic, MicOff, RotateCcw, Paperclip, X, FileText } from 'lucide-react'
 import { callChatDiscovery } from '@/lib/supabase'
 import type { ChatMessage, Opportunity } from '@/lib/types'
 import { emptyOpportunity } from '@/lib/types'
@@ -228,39 +228,37 @@ export default function ChatDiscovery({ onSubmit }: Props) {
   // ── Welcome Screen ──────────────────────────────────────
   if (!started) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-6 shadow-lg shadow-amber-300/30">
-          <Sparkles className="w-7 h-7 text-white" />
+      <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mb-6">
+          <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+            <path d="M9 2L4 9h5l-2 5 7-8H9l2-5z" fill="white"/>
+          </svg>
         </div>
-        <h2 className="text-2xl font-bold text-text-primary mb-3 tracking-tight">
+        <h2 className="text-xl font-medium text-text-primary mb-2 tracking-tight">
           What would you like to automate?
         </h2>
-        <p className="text-text-muted text-sm mb-10 max-w-lg leading-relaxed">
-          Tell me about a task that takes too much time or effort.
-          I'll ask a few questions to understand it, then we'll capture it as an automation opportunity.
+        <p className="text-text-muted text-sm mb-8 max-w-sm leading-relaxed">
+          Describe a task that takes too much time. I'll ask a few questions, then capture it as an opportunity.
         </p>
-        <div className="flex flex-col items-center gap-3">
-          <button
-            onClick={startChat}
-            className="px-10 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm
-                       hover:shadow-lg hover:shadow-amber-300/40 transition-all hover:-translate-y-0.5 active:translate-y-0"
-          >
-            Start conversation
-          </button>
-          <span className="text-[11px] text-text-hint">Takes about 2-3 minutes</span>
-        </div>
+        <button
+          onClick={startChat}
+          className="px-8 py-3 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-dark transition-colors"
+        >
+          Start conversation
+        </button>
+        <span className="text-[11px] text-text-hint mt-3">Takes about 2–3 minutes</span>
       </div>
     )
   }
 
   // ── Chat Interface ──────────────────────────────────────
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
+    <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-color)] bg-[var(--surface)]">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+          <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M9 2L4 9h5l-2 5 7-8H9l2-5z" fill="white"/></svg>
           </div>
           <span className="text-xs font-semibold text-text-muted">Discovery Assistant</span>
         </div>
@@ -279,20 +277,20 @@ export default function ChatDiscovery({ onSubmit }: Props) {
             <div key={msg.id} className="animate-fade-in">
               {msg.role === 'assistant' ? (
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  <div className="w-7 h-7 rounded-xl bg-accent flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9 2L4 9h5l-2 5 7-8H9l2-5z" fill="white"/></svg>
                   </div>
-                  <div className="flex-1 text-[14px] leading-relaxed text-text-primary pt-0.5">
+                  <div className="flex-1 bg-[var(--ai-bubble)] text-[var(--ai-bubble-text)] rounded-2xl rounded-bl-sm px-4 py-3 text-[14px] leading-relaxed">
                     {msg.content.replace(/```json[\s\S]*?```/g, '').trim()}
                   </div>
                 </div>
               ) : (
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] bg-[#1c1917] dark:bg-[#2a2d4a] text-white rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed">
+                  <div className="max-w-[80%] bg-[var(--user-bubble)] text-[var(--user-bubble-text)] rounded-2xl rounded-br-sm px-4 py-3 text-[14px] leading-relaxed">
                     {msg.content.includes('[Attached file:') ? (
                       <>
                         {msg.content.split('\n---\n')[0] || 'Attached a document'}
-                        <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-white/10 rounded-lg text-xs text-white/70">
+                        <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-black/5 dark:bg-white/10 rounded-lg text-xs text-[var(--text-muted)]">
                           <FileText size={12} />
                           {msg.content.match(/\[Attached file: (.+?)\]/)?.[1] || 'file'}
                         </div>
@@ -306,8 +304,8 @@ export default function ChatDiscovery({ onSubmit }: Props) {
 
           {loading && (
             <div className="flex gap-3 animate-fade-in">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
+              <div className="w-7 h-7 rounded-xl bg-accent flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9 2L4 9h5l-2 5 7-8H9l2-5z" fill="white"/></svg>
               </div>
               <div className="flex gap-1.5 pt-2.5">
                 <div className="w-2 h-2 rounded-full bg-text-hint/60 typing-dot" />
@@ -322,7 +320,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
               <div className="bg-step3-bg border-2 border-step3-border rounded-2xl p-5 mt-2">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-step3 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white" />
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M9 2L4 9h5l-2 5 7-8H9l2-5z" fill="white"/></svg>
                   </div>
                   <div>
                     <p className="font-bold text-sm text-step3-text">Ready to save!</p>
@@ -359,7 +357,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
       </div>
 
       {/* Input area — fixed bottom bar like ChatGPT */}
-      <div className="border-t border-border/50 bg-app-surface/80 backdrop-blur-sm">
+      <div className="border-t border-[var(--border-color)] bg-[var(--surface)]">
         <div className="max-w-2xl mx-auto px-4 py-3">
           {/* Attached file preview */}
           {attachedFile && (
@@ -372,7 +370,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
               </button>
             </div>
           )}
-          <div className="flex items-end gap-2 bg-app-bg border border-border rounded-2xl px-3 py-2 focus-within:border-text-muted/40 focus-within:shadow-sm transition-all">
+          <div className="flex items-end gap-2 bg-[var(--app-bg)] border border-[var(--border-light)] rounded-2xl px-3 py-2 focus-within:border-[var(--accent)]/40 focus-within:shadow-sm transition-all">
             {/* File upload button */}
             <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
             <button
@@ -420,7 +418,7 @@ export default function ChatDiscovery({ onSubmit }: Props) {
                 disabled={!input.trim() || loading}
                 className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all
                   ${input.trim() && !loading
-                    ? 'bg-[#1c1917] dark:bg-white text-white dark:text-[#1c1917] shadow-sm hover:opacity-90'
+                    ? 'bg-accent hover:bg-accent-dark text-white shadow-sm'
                     : 'text-text-hint/40'
                   }`}
               >

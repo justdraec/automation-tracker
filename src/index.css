@@ -3,55 +3,92 @@
 @tailwind utilities;
 
 :root {
-  --app-bg: #f4f2ee;
-  --surface: #fff;
-  --border-color: #e8e4dd;
-  --border-hover: #cdc8bf;
-  --text-primary: #1c1917;
-  --text-muted: #78716c;
-  --text-hint: #a8a29e;
+  --app-bg: #f8f7ff;
+  --surface: #ffffff;
+  --surface-2: #f0edfd;
+  --border-color: #e8e4f3;
+  --border-light: #e2ddf5;
+  --text-primary: #1a1833;
+  --text-muted: #706d8a;
+  --text-hint: #9b97b8;
 
-  --step1-text: #b45309;
-  --step1-bg: #fffbeb;
+  --accent: #7c3aed;
+  --accent-dark: #6d28d9;
+  --accent-light: #f0edfd;
+  --accent-border: #e2ddf5;
+
+  --sidebar-bg: #ffffff;
+  --sidebar-active: #f0edfd;
+  --sidebar-active-border: #e2ddf5;
+
+  --ai-bubble: #2d2b55;
+  --ai-bubble-text: #e8e4f3;
+  --user-bubble: #f0edfd;
+  --user-bubble-text: #1a1833;
+
+  --step1-text: #92400e;
+  --step1-bg: #fef3c7;
   --step1-border: #fcd34d;
   --step1-accent: #d97706;
 
-  --step2-text: #4338ca;
-  --step2-bg: #eef2ff;
-  --step2-border: #a5b4fc;
-  --step2-accent: #6366f1;
+  --step2-text: #5b21b6;
+  --step2-bg: #ede9fe;
+  --step2-border: #c4b5fd;
+  --step2-accent: #7c3aed;
 
-  --step3-text: #047857;
-  --step3-bg: #ecfdf5;
+  --step3-text: #065f46;
+  --step3-bg: #d1fae5;
   --step3-border: #6ee7b7;
   --step3-accent: #10b981;
 
-  --ai-text: #6d28d9;
-  --ai-bg: #f5f3ff;
+  --ai-text: #5b21b6;
+  --ai-bg: #ede9fe;
   --ai-border: #c4b5fd;
 
   --danger: #dc2626;
   --danger-bg: #fef2f2;
+
+  --score-high-bg: #fef3c7;
+  --score-high-text: #92400e;
+  --score-mid-bg: #ede9fe;
+  --score-mid-text: #5b21b6;
+  --score-low-bg: #d1fae5;
+  --score-low-text: #065f46;
 }
 
 .dark {
-  --app-bg: #1a1a2e;
-  --surface: #16213e;
-  --border-color: #2a2d4a;
-  --border-hover: #3d4070;
-  --text-primary: #e0e0e0;
-  --text-muted: #a0a0b8;
-  --text-hint: #6e6e8a;
+  --app-bg: #13111f;
+  --surface: #1c1a2e;
+  --surface-2: #252340;
+  --border-color: #2d2b4a;
+  --border-light: #252340;
+  --text-primary: #e8e4f3;
+  --text-muted: #9b97b8;
+  --text-hint: #5e5a7a;
 
-  --step1-bg: #2d2310;
-  --step1-border: #5c4a1e;
-  --step2-bg: #1a1a3e;
-  --step2-border: #2d2d6e;
-  --step3-bg: #0d2818;
-  --step3-border: #1a4d30;
-  --ai-bg: #1e1040;
-  --ai-border: #3d2a7a;
-  --danger-bg: #2d1010;
+  --accent: #9d6ef8;
+  --accent-dark: #7c3aed;
+  --accent-light: #252340;
+  --accent-border: #3d3560;
+
+  --sidebar-bg: #1c1a2e;
+  --sidebar-active: #252340;
+  --sidebar-active-border: #3d3560;
+
+  --ai-bubble: #1c1a2e;
+  --ai-bubble-text: #c4b5fd;
+  --user-bubble: #252340;
+  --user-bubble-text: #e8e4f3;
+
+  --step1-bg: #2d1e05;
+  --step1-border: #5c3a0a;
+  --step2-bg: #1c1540;
+  --step2-border: #3d2d7a;
+  --step3-bg: #052010;
+  --step3-border: #0f4425;
+  --ai-bg: #1c1540;
+  --ai-border: #3d2d7a;
+  --danger-bg: #2d0a0a;
 }
 
 body {
@@ -64,13 +101,13 @@ body {
 
 /* Chat bubbles */
 .chat-bubble-assistant {
-  background: var(--surface);
-  border: 1px solid var(--border-color);
+  background: var(--ai-bubble);
+  color: var(--ai-bubble-text);
   border-radius: 16px 16px 16px 4px;
 }
 .chat-bubble-user {
-  background: var(--step1-bg);
-  border: 1px solid var(--step1-border);
+  background: var(--user-bubble);
+  color: var(--user-bubble-text);
   border-radius: 16px 16px 4px 16px;
 }
 
@@ -96,7 +133,7 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* Score donut */
 .score-donut {
@@ -113,13 +150,13 @@ body {
     @apply w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--app-bg)] text-sm text-[var(--text-primary)] outline-none transition-colors;
   }
   .field-input:focus {
-    border-color: var(--step2-accent);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
   }
   .field-input-sm {
     @apply w-full px-2 py-1.5 rounded-md border border-[var(--border-color)] bg-[var(--surface)] text-xs text-[var(--text-primary)] outline-none transition-colors;
   }
   .field-input-sm:focus {
-    border-color: var(--step2-accent);
+    border-color: var(--accent);
   }
 }
