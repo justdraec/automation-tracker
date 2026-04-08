@@ -145,33 +145,31 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        JSON.stringify({ error: 'Anthropic API key not configured. Add ANTHROPIC_API_KEY to Supabase Edge Function secrets.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build messages with system prompt prepended
-    const apiMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ];
+    // Build messages for Anthropic API (system prompt is separate)
+    const apiMessages = messages.map((m: { role: string; content: string }) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'claude-sonnet-4-6',
+        system: SYSTEM_PROMPT,
         messages: apiMessages,
-        temperature: 0.7,
         max_tokens: 1024,
       }),
     });
@@ -179,13 +177,13 @@ Deno.serve(async (req: Request) => {
     if (!response.ok) {
       const errText = await response.text();
       return new Response(
-        JSON.stringify({ error: `OpenAI error: ${response.status}`, details: errText.slice(0, 200) }),
+        JSON.stringify({ error: `Anthropic error: ${response.status}`, details: errText.slice(0, 200) }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
+    const reply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
 
     return new Response(
       JSON.stringify({ reply }),
