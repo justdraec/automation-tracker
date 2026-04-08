@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import Icon from '@/components/Icon'
 import type { Opportunity, OpportunityStatus } from '@/lib/types'
-import { STATUS_LABELS, STATUS_COLORS } from '@/lib/types'
+import { STATUS_LABELS } from '@/lib/types'
 import { getScoreColor } from '@/lib/scoring'
-import { generateMarkdownPRD, generatePlainPRD } from '@/lib/prd-generator'
+import { generateMarkdownPRD } from '@/lib/prd-generator'
 import BuilderPanel from '@/components/BuilderPanel'
 
 interface Props {
@@ -14,227 +14,211 @@ interface Props {
   onStatusChange: (id: number, status: OpportunityStatus) => void
 }
 
+const STATUS_STYLES: Record<OpportunityStatus, string> = {
+  'pending-review': 'bg-surface-container-high text-on-surface-variant',
+  'not-started': 'bg-surface-container-high text-on-surface-variant',
+  'in-progress': 'bg-tertiary-fixed text-tertiary',
+  'built': 'bg-green-100 text-[#008545]',
+  'on-hold': 'bg-error-container text-error',
+}
+
 export default function OpportunityDetail({ entry: e, builderMode, onUpdate, onDelete, onStatusChange }: Props) {
   const [showBuilder, setShowBuilder] = useState(false)
   const [showPRD, setShowPRD] = useState(false)
   const [prdText, setPrdText] = useState('')
-  const [showDiscovery, setShowDiscovery] = useState(false)
 
   const sc = getScoreColor(e.score)
-  const statusCls = STATUS_COLORS[(e.status || 'pending-review') as OpportunityStatus] || ''
+  const status = (e.status || 'pending-review') as OpportunityStatus
 
-  function handleGeneratePRD() {
-    const sorted = [e]
-    const text = generateMarkdownPRD(e, 1)
-    setPrdText(text)
+  function handleGeneratePRD(): void {
+    setPrdText(generateMarkdownPRD(e, 1))
     setShowPRD(!showPRD)
   }
 
-  function scorePillCls(score: number) {
-    if (score >= 7.5) return 'bg-[var(--score-high-bg)] text-[var(--score-high-text)]'
-    if (score >= 5) return 'bg-[var(--score-mid-bg)] text-[var(--score-mid-text)]'
-    return 'bg-[var(--score-low-bg)] text-[var(--score-low-text)]'
-  }
+  // Parse steps into array for the grid
+  const stepsArr = (e.clientSteps || e.steps || '').split('\n').filter(Boolean)
 
   return (
     <div className="flex flex-col h-full">
       {/* Header bar */}
-      <div className="bg-[var(--surface)] border-b border-[var(--border-color)] px-5 py-3.5 flex items-center gap-3 flex-shrink-0">
-        <h2 className="text-sm font-medium text-[var(--text-primary)] flex-1 truncate">{e.area || 'Untitled'}</h2>
-        {builderMode && (
-          <select
-            value={e.status || 'pending-review'}
-            onChange={ev => onStatusChange(e.id, ev.target.value as OpportunityStatus)}
-            className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold cursor-pointer ${statusCls}`}
-          >
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        )}
-        {!builderMode && (
-          <span className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold ${statusCls}`}>
-            {STATUS_LABELS[(e.status || 'pending-review') as OpportunityStatus]}
+      <div className="bg-surface border-b border-outline-variant/10 px-8 py-4 flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 text-sm text-on-surface-variant flex-1">
+          <span>Build List</span>
+          <Icon name="chevron_right" size={16} className="text-outline-variant" />
+          <span className="font-headline font-bold text-on-surface truncate">{e.area || 'Untitled'}</span>
+        </div>
+        <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${STATUS_STYLES[status]}`}>
+          {STATUS_LABELS[status]}
+        </span>
+        {e.score > 0 && (
+          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${e.score >= 7.5 ? 'bg-tertiary-fixed text-tertiary' : e.score >= 5 ? 'bg-primary-fixed text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+            {e.score} SCORE
           </span>
         )}
-        {e.score > 0 && (
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${scorePillCls(e.score)}`}>{e.score}</span>
+        {builderMode && (
+          <select value={status} onChange={ev => onStatusChange(e.id, ev.target.value as OpportunityStatus)}
+            className="text-[11px] px-2.5 py-1 rounded-full border border-outline-variant bg-white font-medium cursor-pointer outline-none ml-2">
+            {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
         )}
-        <div className="flex items-center gap-1 ml-1">
-          <IconBtn title="Generate PRD" onClick={handleGeneratePRD}>
-            <Icon name="description" size={14} />
-          </IconBtn>
+        <div className="flex items-center gap-2 ml-2">
+          <button onClick={handleGeneratePRD} className="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant transition-all" title="Generate PRD">
+            <Icon name="description" size={18} />
+          </button>
           {builderMode && (
-            <IconBtn title={showBuilder ? 'Close builder' : 'Open builder'} onClick={() => setShowBuilder(!showBuilder)} active={showBuilder}>
-              <Icon name="build" size={14} />
-            </IconBtn>
+            <button onClick={() => setShowBuilder(!showBuilder)} className={`p-2 rounded-xl transition-all ${showBuilder ? 'bg-primary-container text-on-primary' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant'}`} title="Builder panel">
+              <Icon name="build" size={18} />
+            </button>
           )}
           {builderMode && (
-            <IconBtn title="Delete" onClick={() => { if (confirm('Delete "' + e.area + '"?')) onDelete(e.id) }} danger>
-              <Icon name="delete" size={14} />
-            </IconBtn>
+            <button onClick={() => { if (confirm('Delete "' + e.area + '"?')) onDelete(e.id) }}
+              className="p-2 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error text-on-surface-variant transition-all" title="Delete">
+              <Icon name="delete" size={18} />
+            </button>
           )}
+          <button className="px-5 py-2 rounded-full bg-primary text-on-primary text-xs font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
+            Publish Flow
+          </button>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* PRD output */}
-        {showPRD && (
-          <div className="m-4 animate-fade-in">
-            <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-muted)]">Generated PRD</span>
-                <div className="flex gap-1.5">
-                  <button onClick={() => navigator.clipboard.writeText(prdText)} className="text-[11px] text-[var(--accent)] hover:underline flex items-center gap-1">
-                    <Icon name="content_copy" size={11} /> Copy
-                  </button>
-                  <button onClick={() => setShowPRD(false)} className="text-[11px] text-[var(--text-hint)] hover:text-[var(--text-muted)]">Close</button>
+        <div className="max-w-6xl mx-auto px-8 py-6">
+          {/* PRD output */}
+          {showPRD && (
+            <div className="mb-6 animate-fade-in">
+              <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+                  <span className="text-xs font-bold text-on-surface-variant">Generated PRD</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => navigator.clipboard.writeText(prdText)} className="text-[11px] text-primary hover:underline flex items-center gap-1"><Icon name="content_copy" size={14} /> Copy</button>
+                    <button onClick={() => setShowPRD(false)} className="text-[11px] text-on-surface-variant/50 hover:text-on-surface-variant">Close</button>
+                  </div>
+                </div>
+                <pre className="p-4 text-xs text-on-surface-variant font-mono leading-relaxed whitespace-pre-wrap max-h-[400px] overflow-y-auto bg-surface-container-low">{prdText}</pre>
+              </div>
+            </div>
+          )}
+
+          {/* Bento grid: Problem (8) + Metric (4) */}
+          <div className="grid grid-cols-12 gap-4 mb-4">
+            {/* Problem Statement */}
+            <div className="col-span-8 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10">
+              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50 mb-3">Problem Statement</p>
+              <p className="text-on-surface text-[15px] leading-relaxed mb-6">{e.pain || 'Not provided'}</p>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-1">Owner</p>
+                  <p className="text-sm font-medium text-on-surface">{e.owner || '--'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-1">Frequency</p>
+                  <p className="text-sm font-medium text-on-surface">{e.frequency || '--'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-1">Tools</p>
+                  <div className="flex gap-1 flex-wrap">
+                    {e.toolChips?.length ? e.toolChips.map(t => (
+                      <span key={t} className="px-2 py-0.5 bg-surface-container-low rounded text-[11px] font-medium text-on-surface">{t}</span>
+                    )) : <span className="text-sm text-on-surface">{e.tools || '--'}</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-1">Est. Time</p>
+                  <p className="text-sm font-bold text-primary">{e.timesaved ? `${e.timesaved}h/week` : '--'}</p>
                 </div>
               </div>
-              <pre className="p-4 text-xs text-[var(--text-muted)] font-mono leading-relaxed whitespace-pre-wrap max-h-[400px] overflow-y-auto bg-[var(--app-bg)]">{prdText}</pre>
+            </div>
+
+            {/* Success Metric — green card */}
+            <div className="col-span-4 bg-[#008545] rounded-2xl p-6 text-white flex flex-col justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-3">Target Success Metric</p>
+              <p className="text-lg font-bold leading-relaxed">{e.metric || 'No metric defined'}</p>
             </div>
           </div>
-        )}
 
-        {/* Discovery summary */}
-        <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl p-5 m-4">
-          <div className="mb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-hint)] mb-1">Pain point</p>
-            <p className="text-sm text-[var(--text-primary)] leading-relaxed">{e.pain || 'Not provided'}</p>
-          </div>
+          {/* Discovery Details — amber bento */}
+          {(e.clientTrigger || e.clientSteps || e.clientInput || e.clientOutput) && (
+            <div className="bg-[#fef3c7] rounded-2xl p-6 mb-4 border border-amber-200">
+              <div className="grid grid-cols-12 gap-6">
+                {/* Left: Trigger + Input */}
+                <div className="col-span-5 space-y-5">
+                  {e.clientTrigger && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon name="mail" size={16} className="text-amber-700" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-800">The Trigger</p>
+                      </div>
+                      <p className="text-sm text-amber-900">{e.clientTrigger}</p>
+                    </div>
+                  )}
+                  {e.clientInput && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-2">Input Data</p>
+                      <ul className="space-y-1">
+                        {e.clientInput.split(',').map((item, i) => (
+                          <li key={i} className="flex items-center gap-2 text-sm text-amber-900">
+                            <Icon name="check" size={14} className="text-amber-700" /> {item.trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <DetailCell label="Owner" value={e.owner} />
-            <DetailCell label="Frequency" value={e.frequency} />
-            <DetailCell label="Tools" value={e.tools} />
-            <DetailCell label="Time saved" value={e.timesaved ? `${e.timesaved} hrs/week` : undefined} />
-          </div>
+                {/* Right: Automated Steps */}
+                <div className="col-span-7">
+                  {stepsArr.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-3">Automated Steps</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {stepsArr.map((step, i) => (
+                          <div key={i} className="flex items-start gap-2 bg-white/60 rounded-xl p-3">
+                            <span className="text-xs font-bold text-amber-700 mt-0.5">{i + 1}.</span>
+                            <p className="text-xs text-amber-900">{step.replace(/^\d+\.\s*/, '')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {e.clientOutput && (
+                    <div className="mt-4 flex items-center gap-3">
+                      <span className="px-3 py-1 bg-amber-200 rounded-full text-[10px] font-bold text-amber-800 uppercase">Output</span>
+                      <p className="text-xs text-amber-900">{e.clientOutput}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
-          {e.metric && (
-            <div className="bg-[var(--step3-bg)] border border-[var(--step3-border)] rounded-xl p-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--step3-text)] mb-1">Success metric</p>
-              <p className="text-sm text-[var(--step3-text)]">{e.metric}</p>
+          {/* Scoring */}
+          {e.score > 0 && (
+            <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/10 mb-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50 mb-3">Scoring</p>
+              <div className="flex items-center gap-6">
+                <div className="score-donut w-14 h-14 text-lg font-bold flex-shrink-0"
+                     style={{ background: `conic-gradient(${sc.col} ${Math.round(e.score / 10 * 360)}deg, #ccc3d8 ${Math.round(e.score / 10 * 360)}deg)` }}>
+                  <span className="bg-surface-container-lowest w-10 h-10 rounded-full flex items-center justify-center" style={{ color: sc.col }}>{e.score}</span>
+                </div>
+                <div className="flex gap-6 text-xs">
+                  <div><span className="text-on-surface-variant text-[10px] uppercase font-bold">Impact</span><p className="font-bold text-on-surface text-sm">{e.impact}/5</p></div>
+                  <div><span className="text-on-surface-variant text-[10px] uppercase font-bold">Urgency</span><p className="font-bold text-on-surface text-sm">{e.urgency}/5</p></div>
+                  <div><span className="text-on-surface-variant text-[10px] uppercase font-bold">Feasibility</span><p className="font-bold text-on-surface text-sm">{e.feasibility}/5</p></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Builder Panel */}
+          {showBuilder && builderMode && (
+            <div className="mb-4">
+              <BuilderPanel entry={e} onSave={onUpdate} />
             </div>
           )}
         </div>
-
-        {/* Client discovery details (collapsible) */}
-        {(e.clientTrigger || e.clientSteps || e.clientInput || e.clientOutput) && (
-          <div className="mx-4 mb-4">
-            <button
-              onClick={() => setShowDiscovery(!showDiscovery)}
-              className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors mb-2"
-            >
-              {showDiscovery ? <Icon name="expand_less" size={12} /> : <Icon name="expand_more" size={12} />}
-              Client discovery details
-            </button>
-            {showDiscovery && (
-              <div className="bg-[var(--step1-bg)] border border-[var(--step1-border)] rounded-xl p-4 animate-fade-in">
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <p className="font-semibold text-[var(--step1-text)] text-[10px] uppercase mb-1">What triggers it</p>
-                    <p className="text-[var(--text-primary)]">{e.clientTrigger || '--'}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[var(--step1-text)] text-[10px] uppercase mb-1">Input data</p>
-                    <p className="text-[var(--text-primary)]">{e.clientInput || '--'}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[var(--step1-text)] text-[10px] uppercase mb-1">Steps described</p>
-                    <p className="text-[var(--text-primary)] whitespace-pre-line">{e.clientSteps || '--'}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[var(--step1-text)] text-[10px] uppercase mb-1">Expected output</p>
-                    <p className="text-[var(--text-primary)]">{e.clientOutput || '--'}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Desired state */}
-        {e.desired && (
-          <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl p-5 mx-4 mb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-hint)] mb-1">Ideal automated state</p>
-            <p className="text-sm text-[var(--text-primary)] leading-relaxed">{e.desired}</p>
-          </div>
-        )}
-
-        {/* Tech spec summary (if filled) */}
-        {(e.trigger || e.steps) && (
-          <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl p-5 mx-4 mb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)] mb-3">Technical specification</p>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <DetailCell label="Trigger type" value={e.triggerType} />
-              <DetailCell label="Build tool" value={e.tool} />
-              <DetailCell label="Build time" value={e.buildtime} />
-              <DetailCell label="Error handling" value={e.error} />
-            </div>
-            {e.steps && (
-              <div className="mt-3">
-                <p className="font-semibold text-[var(--text-hint)] text-[10px] uppercase mb-1">Process steps</p>
-                <p className="text-xs text-[var(--text-primary)] whitespace-pre-line">{e.steps}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Scoring */}
-        {e.score > 0 && (
-          <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl p-5 mx-4 mb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-hint)] mb-3">Scoring</p>
-            <div className="flex items-center gap-4">
-              <div className="score-donut w-12 h-12 text-sm font-bold flex-shrink-0"
-                   style={{ background: `conic-gradient(${sc.col} 0deg, ${sc.col} ${Math.round(e.score / 10 * 360)}deg, var(--border-color) ${Math.round(e.score / 10 * 360)}deg)` }}>
-                <span className="bg-[var(--surface)] w-8 h-8 rounded-full flex items-center justify-center" style={{ color: sc.col }}>{e.score}</span>
-              </div>
-              <div className="flex gap-4 text-xs">
-                <div><span className="text-[var(--text-hint)] text-[10px] uppercase">Impact</span><p className="font-semibold">{e.impact}/5</p></div>
-                <div><span className="text-[var(--text-hint)] text-[10px] uppercase">Urgency</span><p className="font-semibold">{e.urgency}/5</p></div>
-                <div><span className="text-[var(--text-hint)] text-[10px] uppercase">Feasibility</span><p className="font-semibold">{e.feasibility}/5</p></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Builder Panel */}
-        {showBuilder && builderMode && (
-          <div className="mx-4 mb-4">
-            <BuilderPanel entry={e} onSave={onUpdate} />
-          </div>
-        )}
       </div>
     </div>
-  )
-}
-
-function DetailCell({ label, value }: { label: string; value?: string }) {
-  return (
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-hint)] mb-0.5">{label}</p>
-      <p className="text-sm text-[var(--text-primary)]">{value || '--'}</p>
-    </div>
-  )
-}
-
-function IconBtn({ children, onClick, title, active, danger }: {
-  children: React.ReactNode; onClick: () => void; title: string; active?: boolean; danger?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all
-        ${active
-          ? 'bg-accent/10 border-accent/30 text-accent'
-          : danger
-            ? 'border-[var(--border-color)] bg-[var(--surface)] text-[var(--text-hint)] hover:text-red-500 hover:border-red-300 hover:bg-red-50'
-            : 'border-[var(--border-color)] bg-[var(--surface)] text-[var(--text-hint)] hover:text-[var(--text-muted)] hover:bg-[var(--app-bg)]'
-        }`}
-    >
-      {children}
-    </button>
   )
 }

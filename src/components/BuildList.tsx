@@ -8,9 +8,10 @@ import Icon from '@/components/Icon'
 interface Props {
   entries: Opportunity[]
   builderMode: boolean
+  onOpenDetail?: (id: number) => void
 }
 
-export default function BuildList({ entries, builderMode }: Props) {
+export default function BuildList({ entries, builderMode, onOpenDetail }: Props) {
   const [selectedPRD, setSelectedPRD] = useState('')
   const [prdFormat, setPrdFormat] = useState<'md' | 'plain'>('md')
   const [prdText, setPrdText] = useState('')
@@ -106,7 +107,7 @@ export default function BuildList({ entries, builderMode }: Props) {
                   const statusDot = status === 'built' ? 'bg-[#008545]' : status === 'in-progress' ? 'bg-tertiary-fixed-dim' : status === 'on-hold' ? 'bg-error' : 'bg-outline-variant'
 
                   return (
-                    <tr key={e.id} className="border-t border-outline-variant/10 hover:bg-surface-container-low/30 transition-colors">
+                    <tr key={e.id} onClick={() => onOpenDetail?.(e.id)} className="border-t border-outline-variant/10 hover:bg-surface-container-low/30 transition-colors cursor-pointer">
                       <td className="px-4 py-3.5 font-bold text-on-surface-variant/40">{i + 1}</td>
                       <td className="px-4 py-3.5">
                         <span className="font-bold text-on-surface">{e.area}</span>

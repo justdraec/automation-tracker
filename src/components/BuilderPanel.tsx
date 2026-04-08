@@ -66,7 +66,7 @@ export default function BuilderPanel({ entry, onSave }: Props) {
 
   const checks = [
     { label: 'Input Definition', ok: !!e.clientInput },
-    { label: 'Workflow Steps', ok: !!(e.clientSteps || (e.processSteps && e.processSteps.length > 0)) },
+    { label: 'Workflow Steps', ok: !!e.clientSteps },
     { label: 'Trigger Type', ok: !!e.triggerType },
     { label: 'Output Destination', ok: !!e.clientOutput || !!e.output },
     { label: 'Success Metric', ok: !!e.metric },

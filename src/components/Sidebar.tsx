@@ -4,7 +4,7 @@ import Icon from '@/components/Icon'
 
 interface Props {
   entries: Opportunity[]
-  activeView: 'chat' | 'list' | 'buildlist'
+  activeView: 'chat' | 'list' | 'buildlist' | 'build-detail'
   builderMode: boolean
   dark: boolean
   onSelectOpportunity: () => void
@@ -77,14 +77,16 @@ export default function Sidebar({
           active={activeView === 'list'}
           onClick={onSelectOpportunity}
         />
-        <NavItem
-          icon="bar_chart"
-          label="Build List"
-          active={activeView === 'buildlist'}
-          onClick={onOpenBuildList}
-        />
-        <NavItem icon="analytics" label="Analytics" disabled />
-        <NavItem icon="bolt" label="Automation" disabled />
+        {builderMode && (
+          <NavItem
+            icon="bar_chart"
+            label="Build List"
+            active={activeView === 'buildlist' || activeView === 'build-detail'}
+            onClick={onOpenBuildList}
+          />
+        )}
+        {builderMode && <NavItem icon="analytics" label="Analytics" disabled />}
+        {builderMode && <NavItem icon="bolt" label="Automation" disabled />}
       </div>
 
       {/* Opportunity list */}

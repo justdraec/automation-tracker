@@ -74,7 +74,10 @@ function deriveNodes(data: Partial<Record<string, string>>): WorkflowNode[] {
     nodes.push({ id: 'filter', type: 'filter', icon: 'account_tree', label: combined.length > 25 ? combined.slice(0, 22) + '...' : combined, addedAt: now + 2 })
   }
   if (data.clientInput) nodes.push({ id: 'input', type: 'input', icon: 'database', label: data.clientInput.slice(0, 25), addedAt: now + 5 })
-  if (data.clientSteps) nodes.push({ id: 'action', type: 'action', icon: 'hub', label: data.area ? `Automate ${data.area.slice(0, 20)}` : 'Automation Action', addedAt: now + 10 })
+  if (data.clientSteps) {
+    const areaClean = (data.area || '').replace(/^automate\s+/i, '').slice(0, 20)
+    nodes.push({ id: 'action', type: 'action', icon: 'hub', label: areaClean ? `Automate ${areaClean}` : 'Automation Action', addedAt: now + 10 })
+  }
   if (data.output || data.clientOutput) nodes.push({ id: 'output', type: 'output', icon: 'output', label: (data.output || data.clientOutput || '').slice(0, 25), addedAt: now + 20 })
   return nodes
 }
@@ -139,6 +142,8 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
+  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set())
+  const [toolSelectMode, setToolSelectMode] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -178,7 +183,7 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
 
   function resetChat(): void {
     setMessages([]); setInput(''); setLoading(false); setListening(false); setWorkflowNodes([]); setEditingId(null); setEditText('')
-    setShowConfirm(false); setCompletionData(null); setContextSuggestions([]); collectedDataRef.current = {}
+    setShowConfirm(false); setCompletionData(null); setContextSuggestions([]); setToolSelectMode(false); setSelectedTools(new Set()); collectedDataRef.current = {}
     manualStopRef.current = true; recognitionRef.current?.stop()
   }
 
@@ -198,15 +203,28 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
   function handleAIResponse(reply: string, allMessages: ChatMessage[]): void {
     const data = extractJSON(reply)
     if (data && data.complete) { setCompletionData(data); setShowConfirm(true); setContextSuggestions([]); setWorkflowNodes(deriveNodes(data)) }
-    else { setContextSuggestions(generateSuggestions(reply)); updateWorkflowFromMessages(allMessages) }
+    else {
+      const chips = generateSuggestions(reply)
+      setContextSuggestions(chips)
+      const lastField = inferField(reply)
+      if (lastField === 'tools' && chips.length > 0) { setToolSelectMode(true); setSelectedTools(new Set()) }
+      else { setToolSelectMode(false) }
+      updateWorkflowFromMessages(allMessages)
+    }
   }
 
   async function doSend(messageContent: string): Promise<void> {
     if (!messageContent.trim() || loading) return
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: messageContent, timestamp: new Date() }
     const newMessages = [...messages, userMsg]
-    setMessages(newMessages); setInput(''); setAttachedFile(null); setContextSuggestions([]); setLoading(true)
+    setMessages(newMessages); setInput(''); setAttachedFile(null); setContextSuggestions([]); setToolSelectMode(false); setSelectedTools(new Set()); setLoading(true)
     if (inputRef.current) inputRef.current.style.height = '28px'
+    // Immediately store user answer mapped to the last AI question's field
+    const lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant')
+    if (lastAiMsg) {
+      const field = inferField(lastAiMsg.content)
+      if (field) { collectedDataRef.current[field] = messageContent.slice(0, 100); setWorkflowNodes(deriveNodes(collectedDataRef.current)) }
+    }
     try {
       const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }))
       const reply = await callChatDiscovery(apiMessages)
@@ -258,8 +276,13 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
     opp.input = data.clientInput || ''; opp.output = data.clientOutput || ''; opp.steps = data.clientSteps || ''
     opp.impact = parseInt(String(data.impact)) || 3; opp.urgency = parseInt(String(data.urgency)) || 3; opp.feasibility = parseInt(String(data.feasibility)) || 3
     opp.score = calcScore(opp.impact, opp.urgency, opp.feasibility); opp.priority = getPriority(opp.score)
-    onSubmit(opp)
-    if (onNavigateToList) setTimeout(() => onNavigateToList(), 500)
+    try {
+      onSubmit(opp)
+      if (onNavigateToList) setTimeout(() => onNavigateToList(), 800)
+    } catch {
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: "There was an error saving the opportunity. Please try again.", timestamp: new Date() }])
+      setShowConfirm(true)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent): void { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }
@@ -451,13 +474,34 @@ export default function ChatDiscovery({ onSubmit, onNavigateToList }: Props) {
             {/* Suggestion chips */}
             {contextSuggestions.length > 0 && !loading && (
               <div className="px-8 pt-3 pb-1">
-                <div className="max-w-4xl mx-auto grid grid-cols-2 gap-3">
-                  {contextSuggestions.map(s => (
-                    <button key={s} onClick={() => { setContextSuggestions([]); sendSuggestion(s) }}
-                      className="text-left p-4 rounded-xl bg-white border border-outline-variant/30 hover:border-primary hover:shadow-md transition-all group">
-                      <p className="font-bold text-on-surface text-sm group-hover:text-primary">{s}</p>
-                    </button>
-                  ))}
+                <div className="max-w-4xl mx-auto">
+                  {toolSelectMode ? (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {contextSuggestions.map(s => (
+                          <button key={s} onClick={() => setSelectedTools(prev => { const next = new Set(prev); next.has(s) ? next.delete(s) : next.add(s); return next })}
+                            className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${selectedTools.has(s) ? 'bg-primary text-white' : 'bg-white border border-outline-variant/30 text-on-surface hover:border-primary/40'}`}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedTools.size > 0 && (
+                        <button onClick={() => { const toolsText = Array.from(selectedTools).join(', '); setContextSuggestions([]); setToolSelectMode(false); setSelectedTools(new Set()); sendSuggestion(toolsText) }}
+                          className="px-5 py-2 rounded-full bg-primary text-white text-xs font-semibold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">
+                          Confirm {selectedTools.size} tool{selectedTools.size > 1 ? 's' : ''}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {contextSuggestions.map(s => (
+                        <button key={s} onClick={() => { setContextSuggestions([]); sendSuggestion(s) }}
+                          className="text-left p-4 rounded-xl bg-white border border-outline-variant/30 hover:border-primary hover:shadow-md transition-all group">
+                          <p className="font-bold text-on-surface text-sm group-hover:text-primary">{s}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
