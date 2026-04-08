@@ -360,17 +360,6 @@ export default function ChatDiscovery({ onSubmit }: Props) {
                             {msg.content.replace(/```json[\s\S]*?```/g, '').trim()}
                           </p>
                         </div>
-                        {/* Suggestion chips inline with AI message (as option cards) */}
-                        {msg.id === messages[messages.length - 1]?.id && contextSuggestions.length > 0 && !loading && (
-                          <div className="grid grid-cols-2 gap-3">
-                            {contextSuggestions.map(s => (
-                              <button key={s} onClick={() => { setContextSuggestions([]); sendSuggestion(s) }}
-                                className="text-left p-4 rounded-xl bg-white border border-outline-variant/30 hover:border-primary hover:shadow-md transition-all group">
-                                <p className="font-bold text-on-surface text-sm group-hover:text-primary">{s}</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ) : editingId === msg.id ? (
@@ -431,57 +420,74 @@ export default function ChatDiscovery({ onSubmit }: Props) {
             </div>
           </div>
 
-          {/* Confirmation bar */}
-          {showConfirm && completionData && (
-            <div className="px-8 py-3 border-t border-outline-variant/10 animate-fade-in">
-              <div className="max-w-4xl mx-auto p-4 bg-white border-2 border-primary rounded-2xl shadow-xl shadow-primary/15 flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-headline font-bold text-on-surface">Ready to save</p>
-                  <p className="text-sm text-on-surface-variant mt-0.5">{completionData.area || 'New opportunity'}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
-                    className="px-6 py-2.5 bg-primary text-white rounded-full font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">Save Opportunity</button>
-                  <button onClick={() => { setShowConfirm(false); setCompletionData(null) }}
-                    className="px-4 py-2.5 rounded-full border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors text-sm">Keep editing</button>
+          {/* Bottom section — confirmation + suggestions + input */}
+          <div className="flex-shrink-0 border-t border-outline-variant/10">
+            {/* Confirmation bar */}
+            {showConfirm && completionData && (
+              <div className="px-8 py-3 border-b border-outline-variant/10 animate-fade-in">
+                <div className="max-w-4xl mx-auto p-4 bg-white border-2 border-primary rounded-2xl shadow-xl shadow-primary/15 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-headline font-bold text-on-surface">Ready to save</p>
+                    <p className="text-sm text-on-surface-variant mt-0.5">{completionData.area || 'New opportunity'}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { handleCompletion(completionData); setShowConfirm(false); setCompletionData(null) }}
+                      className="px-6 py-2.5 bg-primary text-white rounded-full font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all">Save Opportunity</button>
+                    <button onClick={() => { setShowConfirm(false); setCompletionData(null) }}
+                      className="px-4 py-2.5 rounded-full border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors text-sm">Keep editing</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Input bar */}
-          <div className="px-8 pb-6 pt-4">
-            <div className="max-w-4xl mx-auto">
-              {attachedFile && (
-                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary-fixed border border-primary-fixed-dim rounded-xl text-xs animate-fade-in">
-                  <Icon name="description" size={16} className="text-primary flex-shrink-0" />
-                  <span className="text-on-primary-fixed font-medium truncate flex-1">{attachedFile.name}</span>
-                  <span className="text-on-surface-variant/40">{(attachedFile.content.length / 1000).toFixed(1)}k</span>
-                  <button onClick={() => setAttachedFile(null)} className="text-on-surface-variant/40 hover:text-error transition-colors"><Icon name="close" size={16} /></button>
+            {/* Suggestion chips */}
+            {contextSuggestions.length > 0 && !loading && (
+              <div className="px-8 pt-3 pb-1">
+                <div className="max-w-4xl mx-auto grid grid-cols-2 gap-3">
+                  {contextSuggestions.map(s => (
+                    <button key={s} onClick={() => { setContextSuggestions([]); sendSuggestion(s) }}
+                      className="text-left p-4 rounded-xl bg-white border border-outline-variant/30 hover:border-primary hover:shadow-md transition-all group">
+                      <p className="font-bold text-on-surface text-sm group-hover:text-primary">{s}</p>
+                    </button>
+                  ))}
                 </div>
-              )}
-              <div className="relative bg-white border border-outline-variant/30 rounded-full flex items-center px-2 py-2 shadow-lg focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-                <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} disabled={loading} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors disabled:opacity-30 rounded-full"><Icon name="attach_file" size={20} /></button>
-                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder={listening ? 'Listening...' : 'Ask a question or refine the logic...'} rows={1} disabled={loading}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-4 placeholder:text-on-surface-variant/40 resize-none outline-none disabled:opacity-50 leading-relaxed"
-                  style={{ minHeight: '28px', maxHeight: '80px' }}
-                  onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = '28px'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }} />
-                {speechSupported && (
-                  <button onClick={toggleVoice} disabled={loading} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${listening ? 'bg-error text-on-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}>
-                    <Icon name={listening ? 'mic_off' : 'mic'} size={20} />
-                  </button>
-                )}
-                <button onClick={sendMessage} disabled={(!input.trim() && !attachedFile) || loading}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md shadow-primary/20 ${(input.trim() || attachedFile) && !loading ? 'bg-primary text-white hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
-                  {loading ? <Icon name="progress_activity" size={20} className="icon-spin" /> : <Icon name="arrow_upward" size={20} />}
-                </button>
               </div>
-              <div className="flex justify-center mt-3 opacity-50">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant flex items-center gap-1">
-                  <Icon name="keyboard" size={12} /> Press / for commands
-                </span>
+            )}
+
+            {/* Input bar */}
+            <div className="px-8 pb-6 pt-4">
+              <div className="max-w-4xl mx-auto">
+                {attachedFile && (
+                  <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary-fixed border border-primary-fixed-dim rounded-xl text-xs animate-fade-in">
+                    <Icon name="description" size={16} className="text-primary flex-shrink-0" />
+                    <span className="text-on-primary-fixed font-medium truncate flex-1">{attachedFile.name}</span>
+                    <span className="text-on-surface-variant/40">{(attachedFile.content.length / 1000).toFixed(1)}k</span>
+                    <button onClick={() => setAttachedFile(null)} className="text-on-surface-variant/40 hover:text-error transition-colors"><Icon name="close" size={16} /></button>
+                  </div>
+                )}
+                <div className="relative bg-white border border-outline-variant/30 rounded-full flex items-center px-2 py-2 shadow-lg focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                  <input ref={fileInputRef} type="file" accept=".txt,.csv,.md,.doc,.docx,.pdf,.json,.xml,.html" onChange={handleFileUpload} className="hidden" />
+                  <button onClick={() => fileInputRef.current?.click()} disabled={loading} className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors disabled:opacity-30 rounded-full"><Icon name="attach_file" size={20} /></button>
+                  <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                    placeholder={listening ? 'Listening...' : 'Ask a question or refine the logic...'} rows={1} disabled={loading}
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-4 placeholder:text-on-surface-variant/40 resize-none outline-none disabled:opacity-50 leading-relaxed"
+                    style={{ minHeight: '28px', maxHeight: '80px' }}
+                    onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = '28px'; t.style.height = Math.min(t.scrollHeight, 80) + 'px' }} />
+                  {speechSupported && (
+                    <button onClick={toggleVoice} disabled={loading} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${listening ? 'bg-error text-on-error animate-pulse' : 'text-on-surface-variant hover:text-primary'}`}>
+                      <Icon name={listening ? 'mic_off' : 'mic'} size={20} />
+                    </button>
+                  )}
+                  <button onClick={sendMessage} disabled={(!input.trim() && !attachedFile) || loading}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md shadow-primary/20 ${(input.trim() || attachedFile) && !loading ? 'bg-primary text-white hover:bg-secondary' : 'bg-surface-container text-on-surface-variant/30'}`}>
+                    {loading ? <Icon name="progress_activity" size={20} className="icon-spin" /> : <Icon name="arrow_upward" size={20} />}
+                  </button>
+                </div>
+                <div className="flex justify-center mt-3 opacity-50">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant flex items-center gap-1">
+                    <Icon name="keyboard" size={12} /> Press / for commands
+                  </span>
+                </div>
               </div>
             </div>
           </div>
