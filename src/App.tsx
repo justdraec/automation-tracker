@@ -117,10 +117,18 @@ export default function App() {
           <div className={activeView === 'buildlist' ? 'flex flex-col h-full' : 'hidden'}>
             <BuildList entries={entries} builderMode={builderMode} onOpenDetail={(id: number) => { setActiveBuildDetailId(id); setActiveView('build-detail') }} />
           </div>
-          {activeView === 'build-detail' && activeBuildEntry && (
-            <div className="flex flex-col h-full">
-              <OpportunityDetail entry={activeBuildEntry} builderMode={builderMode} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setActiveView('buildlist') }} onStatusChange={handleStatusChange} />
-            </div>
+          {activeView === 'build-detail' && (
+            activeBuildEntry ? (
+              <div className="flex flex-col h-full">
+                <OpportunityDetail entry={activeBuildEntry} builderMode={builderMode} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setActiveView('buildlist') }} onStatusChange={handleStatusChange} />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-on-surface-variant">
+                <Icon name="search_off" size={40} className="text-on-surface-variant/20 mb-3" />
+                <p className="font-medium">Opportunity not found</p>
+                <button onClick={() => setActiveView('buildlist')} className="mt-3 px-5 py-2 rounded-full bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-all">Back to Build List</button>
+              </div>
+            )
           )}
         </main>
       </div>
