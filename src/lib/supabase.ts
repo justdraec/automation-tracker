@@ -47,3 +47,14 @@ export async function callChatDiscovery(
   if (error) throw error
   return data?.reply || 'Sorry, something went wrong.'
 }
+
+export async function callGeneratePRD(
+  opportunity: Opportunity,
+  format: 'md' | 'plain' = 'md'
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('generate-prd', {
+    body: { opportunity, format },
+  })
+  if (error) throw error
+  return data?.prd || ''
+}
